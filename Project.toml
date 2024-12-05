@@ -1,0 +1,22 @@
+name = "VRPReLU"
+uuid = "3bfa326d-ce14-4beb-9edc-4c747b94afea"
+authors = ["njozefow <njozefowiez@gmail.com>"]
+version = "0.1.0"
+
+[deps]
+CSV = "336ed68f-0bac-5ca0-87d4-7b16caf5d00b"
+DataFrames = "a93c6f00-e57d-5684-b7b6-d8193f3e46c0"
+EzXML = "8f5d6c58-4d21-5cfd-889c-e3ad7ee6a615"
+Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
+JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
+OhMyREPL = "5fb14364-9ced-5910-84b2-373655c76a03"
+Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+
+[compat]
+CSV = "0.10.15"
+DataFrames = "1.7.0"
+EzXML = "1.2.0"
+Gurobi = "1.6.0"
+JuMP = "1.23.5"
+OhMyREPL = "0.5.28"
+Revise = "3.6.4"
