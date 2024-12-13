@@ -29,7 +29,7 @@ function Master(instance)
     @objective(model, Min, artificial_weight(instance) * artificial_x)
 
     constraints = Vector{ConstraintRef}()
-    push!(constraints, @constraint(model, n_vehicles(instance) * artificial_x <= n_vehicles(instance), set_string_name = false))
+    push!(constraints, @constraint(model, n_vehicles(instance) * artificial_x == n_vehicles(instance), set_string_name = false))
     for i in 2:n_nodes(instance)
         push!(constraints, @constraint(model, artificial_x == 1, set_string_name = false))
     end
@@ -74,6 +74,7 @@ function iselemantary(route)
     return elementary, counter
 end
 
+# TODO: il faudrait le faire en construisant column
 function push_column(master, column)
     elementary, counter = iselemantary(column.route)
 
@@ -106,21 +107,6 @@ function push_elementary_column(master, columns)
         push!(master.x, x)
         push!(master.columns, c)
     end
-
-    # cstrs = master.constraints
-    # constr = Vector{ConstraintRef}()
-    # @variable(master.model, x[1:length(columns)], lower_bound = 0.0, integer = true, set_string_name = false)
-    # vars = Vector{VariableRef}()
-    # objcoeff = [col.cost for col in columns]
-
-    # set_objective_coefficient(master.model, x, objcoeff)
-
-    # for i in 1:length(columns)
-    #     set_normalized_coefficient(cstrs[1], x[i], 1.0)
-    #     for u in view(columns[i].route, 2:length(columns[i].route)-1)
-    #         set_normalized_coefficient(cstrs[u], x[i], 1.0)
-    #     end
-    # end
 end
 
 function delete_ngroutes(master)
@@ -131,7 +117,9 @@ end
 
 function add_singleton(master, instance)
     for i in 2:n_nodes(instance)
-        push_column(master, Column(2.0 * distance(instance, root(instance), i), [root(instance), i, root(instance)], BitSet(i)))
+        length = 2 * distance(instance, root(instance), i)
+        cost = max(0, length - soft_distance_limit(instance))
+        push_column(master, Column(cost, [root(instance), i, root(instance)], BitSet(i)))
     end
 end
 
@@ -165,7 +153,14 @@ function add_pairs(master, instance)
                 continue
             end
 
-            cost = distance(instance, root(instance), i) + distance(instance, i, j) + distance(instance, j, root(instance))
+            length = distance(instance, root(instance), i) + distance(instance, i, j) + distance(instance, j, root(instance))
+            if length > hard_distance_limit(instance)
+                continue
+            end
+
+            # cost = distance(instance, root(instance), i) + distance(instance, i, j) + distance(instance, j, root(instance))
+            cost = max(0, length - soft_distance_limit(instance))
+
             route = [root(instance), i, j, root(instance)]
 
             nodes = BitSet()

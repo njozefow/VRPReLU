@@ -7,7 +7,7 @@ using DataFrames
 # using DataStructures
 using CSV
 
-import Base: isempty, copy
+import Base: isempty, copy, length
 
 const GRB_ENV_REF = Ref{Gurobi.Env}()
 
@@ -60,8 +60,8 @@ include("bcmaster.jl")
     complete::Bool = false
 
     # For generating VRPReLU instances
-    max_length::Int = 0
-    nb_vehicles::Int = 0
+    # max_length::Int = 0
+    # nb_vehicles::Int = 0
 end
 
 # mutable struct Result
@@ -138,26 +138,6 @@ function enumerate(param, master, sp, result)
         return result
     end
 
-    # @kwdef mutable struct Result
-    #     # Lower bound computation
-    #     lower_bound = Inf
-    #     lb_cpu_time = Inf
-    #     isint = false
-
-    #     # enumeration
-    #     nbcolumns_enum = 0
-    #     enum_cpu_time = Inf
-
-    #     # optimum
-    #     upper_bound = -Inf
-    #     gap = Inf
-    #     upper_bound_cpu_time = Inf
-
-    #     # Total algorithm
-    #     totaltime = Inf
-    #     complete = false
-    # end
-
     result.nbcolumns_enum = length(routes)
     result.enum_cpu_time = cpu_time(param) - lb_cpu_time
     # TODO: Je me suis arrêté ici
@@ -232,9 +212,9 @@ function solve(instance::Instance)
         result.complete = true
         # return Result(lower_bound, true, lb_cpu_time, true, round(lower_bound), 0, lb_cpu_time, lb_cpu_time, true)
 
-        lengthstar = [master.columns[i].cost for i in eachindex(master.columns) if value(master.x[i]) > 0.5]
-        result.max_length = maximum(lengthstar)
-        result.nb_vehicles = length(lengthstar)
+        # lengthstar = [master.columns[i].cost for i in eachindex(master.columns) if value(master.x[i]) > 0.5]
+        # result.max_length = maximum(lengthstar)
+        # result.nb_vehicles = length(lengthstar)
 
         return result
     end
@@ -254,73 +234,72 @@ function solve(instance::Instance)
     # switch_to_integer(master)
     # bcmaster(sp.instance, master)
 
-    enumerate(param, master, sp, result)
+    # TODO: a remettre
+    # enumerate(param, master, sp, result)
 
     # recuperation des infos pour les instances de VRPReLU
-    lengthstar = [master.columns[i].cost for i in eachindex(master.columns) if value(master.x[i]) > 0.5]
-    result.max_length = maximum(lengthstar)
-    result.nb_vehicles = length(lengthstar)
+    # lengthstar = [master.columns[i].cost for i in eachindex(master.columns) if value(master.x[i]) > 0.5]
+    # result.max_length = maximum(lengthstar)
+    # result.nb_vehicles = length(lengthstar)
 
     return result
 end
 
-function solve(path::String, type::String, name::AbstractString)
-    instance = read(joinpath(path, type, "$name.xml"))
+function solve(path::String, type::String, name::AbstractString, ratio=0.75)
+    instance = read(joinpath(path, type, "$name.xml"), joinpath(path, type, "$name.relu"), ratio)
     return solve(instance)
 end
 
 # TODO: Il faudra faire varier le ratio
 function solve(path::String, type::String, ratio=0.75)
     # df = DataFrame(name=String[], lower_bound=Float64[], cg_ended=Bool[], lb_cpu_time=Float64[], isint=Bool[], upper_bound=Int[], gap=Float64[], b_cpu_time=Float64[], totaltime=Float64[], complete=Bool[])
-    df = DataFrame(name=String[], lower_bound=Float64[], nbcolumns_elem_lb=Int[], nbcolumns_nonelem_lb=Int[], lb_cpu_time=Float64[], isint=Bool[], nbcolumns_enum=Int64[], enum_cpu_time=Float64[], upper_bound=Int[], gap=Float64[], upper_bound_cpu_time=Float64[], totaltime=Float64[], complete=Bool[])
+    df = DataFrame(name=String[], ration=Int[], lower_bound=Float64[], nbcolumns_elem_lb=Int[], nbcolumns_nonelem_lb=Int[], lb_cpu_time=Float64[], isint=Bool[], nbcolumns_enum=Int64[], enum_cpu_time=Float64[], upper_bound=Int[], gap=Float64[], upper_bound_cpu_time=Float64[], totaltime=Float64[], complete=Bool[])
 
     path = joinpath(path, type)
 
     for file in readdir(path)
         if occursin(".xml", file) && (occursin("025", file))
-            name = split(file, ".")[1]
-            filename = joinpath(path, "$name.xml")
-            filerelu = joinpath(path, "$name.relu")
-            println(joinpath(path, "$name.xml"))
-            flush(stdout)
-            # instance = read(joinpath(path, "$name.xml"))
-            instance = read(filename, filerelu, ratio)
-            res = solve(instance)
-            # push!(df, (name, res.lower_bound, res.cg_ended, res.lb_cpu_time, res.isint, res.upperbound, round(res.gap, digits=2), res.ubtime, res.totaltime, res.complete))
+            for ratio in [0.25, 0.5, 0.75, 1]
+                name = split(file, ".")[1]
+                filename = joinpath(path, "$name.xml")
+                filerelu = joinpath(path, "$name.relu")
+                println(joinpath(path, "$name.xml"))
+                flush(stdout)
+                # instance = read(joinpath(path, "$name.xml"))
+                instance = read(filename, filerelu, ratio)
+                res = solve(instance)
+                # push!(df, (name, res.lower_bound, res.cg_ended, res.lb_cpu_time, res.isint, res.upperbound, round(res.gap, digits=2), res.ubtime, res.totaltime, res.complete))
 
-            push!(df, (name, res.lower_bound, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
+                push!(df, (name, Int(ratio * 100), res.lower_bound, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
 
-            # io = open(name * ".relu", "w")
-            # println(io, res.max_length, " ", res.nb_vehicles)
-            # close(io)
+                # io = open(name * ".relu", "w")
+                # println(io, res.max_length, " ", res.nb_vehicles)
+                # close(io)
+            end
         end
     end
 
-    # for file in readdir(path)
-    #     if occursin(".xml", file) && (occursin("050", file))
-    #         name = split(file, ".")[1]
-    #         println(joinpath(path, "$name.xml"))
-    #         flush(stdout)
-    #         instance = read(joinpath(path, "$name.xml"))
-    #         res = solve(instance)
-    #         push!(df, (name, res.lower_bound, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
-    #     end
-    # end
+    for file in readdir(path)
+        if occursin(".xml", file) && (occursin("050", file))
+            for ratio in [0.25, 0.5, 0.75, 1]
+                name = split(file, ".")[1]
+                filename = joinpath(path, "$name.xml")
+                filerelu = joinpath(path, "$name.relu")
+                println(joinpath(path, "$name.xml"))
+                flush(stdout)
+                # instance = read(joinpath(path, "$name.xml"))
+                instance = read(filename, filerelu, ratio)
+                res = solve(instance)
+                # push!(df, (name, res.lower_bound, res.cg_ended, res.lb_cpu_time, res.isint, res.upperbound, round(res.gap, digits=2), res.ubtime, res.totaltime, res.complete))
 
-    # println("Apres 50")
-    # println(df)
+                push!(df, (name, Int(ratio * 100), res.lower_bound, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
 
-    # for file in readdir(path)
-    #     if occursin(".xml", file) && (occursin("100", file))
-    #         name = split(file, ".")[1]
-    #         # println(joinpath(path, "$name.xml"))
-    #         # flush(stdout)
-    #         instance = read(joinpath(path, "$name.xml"))
-    #         # println("instance = ", joinpath(path, "$name.xml"))
-    #         res = solve(instance)
-    #push!(df, (name, res.lower_bound, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
-    #     end
-    # end
+                # io = open(name * ".relu", "w")
+                # println(io, res.max_length, " ", res.nb_vehicles)
+                # close(io)
+            end
+        end
+    end
 
     println(df)
 
@@ -337,7 +316,7 @@ function run(path="bench/solomon", type="R1")
     solve(instance)
 
     # TODO: A retirer
-    return
+    # return
 
     solve(path, type)
 

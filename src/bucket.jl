@@ -3,10 +3,12 @@
 function push(bucket, label::Label)
     pos = 1
 
+    label_reduced_cost = path_reduced_cost(label)
+
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if l.reduced_cost >= label.reduced_cost - myeps
+        if path_reduced_cost(l) >= label_reduced_cost - myeps
             break
         elseif dominates(l, label)
             return false
@@ -49,10 +51,12 @@ end
 function dominate(bucket, label::Label)
     pos = 1
 
+    label_reduced_cost = path_reduced_cost(label)
+
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if l.reduced_cost > label.reduced_cost - myeps
+        if path_reduced_cost(l) > label_reduced_cost - myeps
             break
         elseif dominates(l, label)
             return true
@@ -68,10 +72,12 @@ end
 function clean(bucket, label::Label)
     pos = length(bucket)
 
+    label_reduced_cost = path_reduced_cost(label)
+
     while pos > 0
         @inbounds l = bucket[pos]
 
-        if l.reduced_cost < label.reduced_cost + myeps
+        if path_reduced_cost(l) < label_reduced_cost + myeps
             break
         elseif dominates(label, l)
             deleteat!(bucket, pos)

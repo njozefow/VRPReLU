@@ -13,55 +13,54 @@ function ngdpinit(sp)
     return lid, buckets
 end
 
-function push_bucket(bucket, label::Label)
-    i = 1
-    sure = false
 
-    while i <= length(bucket)
-        @inbounds b = bucket[i]
+# function push_bucket(bucket, label::Label)
+#     i = 1
+#     sure = false
 
-        if !sure && dominates(b, label)
-            return false
-        elseif dominates(label, b)
-            sure = true
-            @inbounds bucket[i] = bucket[end]
-            pop!(bucket)
-        else
-            i += 1
-        end
-    end
+#     while i <= length(bucket)
+#         @inbounds b = bucket[i]
 
-    push!(bucket, label)
+#         if !sure && dominates(b, label)
+#             return false
+#         elseif dominates(label, b)
+#             sure = true
+#             @inbounds bucket[i] = bucket[end]
+#             pop!(bucket)
+#         else
+#             i += 1
+#         end
+#     end
 
-    return true
-end
+#     push!(bucket, label)
 
-function dominate_bucket(bucket, label)
-    for b in bucket
-        if dominates(b, label)
-            return true
-        end
-    end
+#     return true
+# end
 
-    return false
-end
+# function dominate_bucket(bucket, label)
+#     for b in bucket
+#         if dominates(b, label)
+#             return true
+#         end
+#     end
 
-function clean_bucket(bucket, label)
-    pos = 1
+#     return false
+# end
 
-    while pos <= length(bucket)
-        @inbounds blabel = bucket[pos]
+# function clean_bucket(bucket, label)
+#     pos = 1
 
-        if dominates(label, blabel)
-            @inbounds bucket[pos] = bucket[end]
-            pop!(bucket)
-        else
-            pos += 1
-        end
-    end
-end
+#     while pos <= length(bucket)
+#         @inbounds blabel = bucket[pos]
 
-# TODO: function clean_bucket(bucket, label) -> remove labels in buckets dominated by label
+#         if dominates(label, blabel)
+#             @inbounds bucket[pos] = bucket[end]
+#             pop!(bucket)
+#         else
+#             pos += 1
+#         end
+#     end
+# end
 
 function ngdprun(sp, buckets, lid)
     for d in 1:vehicle_capacity(sp)
@@ -87,10 +86,6 @@ function ngdprun(sp, buckets, lid)
                             continue
                         end
 
-                        # if dominate_bucket(bucket, newlabel)
-                        #     ok = false
-                        #     break
-                        # end
                         if dominate(bucket, newlabel)
                             ok = false
                             break
@@ -133,7 +128,8 @@ function ngbuildroute(sp, buckets, label)
 
     nodes = BitSet(label.node)
 
-    cost = label.distance + distance(sp, label.node, root(sp))
+    # cost = label.distance + distance(sp, label.node, root(sp))
+    cost = route_cost(sp, label)
 
     pi = label.pnode
     pd = label.pload
@@ -163,7 +159,8 @@ function ngbuildroutes(sp, buckets, bucket, routes)
     bestrc = Inf
 
     for label in bucket
-        rc = label.reduced_cost + reduced_cost(sp, label.node, root(sp))
+        # rc = label.reduced_cost + reduced_cost(sp, label.node, root(sp))
+        rc = route_reduced_cost(sp, label)
 
         if rc > -myeps
             continue

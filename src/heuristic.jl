@@ -1,7 +1,6 @@
 # function hinit(sp::Subproblem)
 function hinit(sp)
-    # (reduced_cost, u, pnode, pload)
-    labels = [Label(sp) for _ in 1:n_nodes(sp), _ in 1:vehicle_capacity(sp)]
+    labels = [Label() for _ in 1:n_nodes(sp), _ in 1:vehicle_capacity(sp)]
 
     lid = 1
 
@@ -31,9 +30,10 @@ function hrun(sp, labels, lid)
 
                 labelto = labels[j, label.load+request_quantity(sp, j)]
 
-                rc = label.reduced_cost + reduced_cost(sp, label.node, j)
+                # rc = label.reduced_cost + reduced_cost(sp, label.node, j)
+                rc = path_reduced_cost(label)
 
-                if rc < labelto.reduced_cost - myeps
+                if rc < path_reduced_cost(labelto) - myeps
                     set_extend(sp, label, labelto, j, lid)
                     lid += 1
                 end
@@ -62,11 +62,16 @@ function hbuildroute(sp, labels, i, d)
         pd = l.pload
     end
 
-    cost = label.distance + distance(sp, label.node, root(sp))
-
     push!(route, root(sp))
-
     reverse!(route)
+
+    if in(-1, route)
+        println("erreur")
+        println(route)
+    end
+
+    # cost = label.distance + distance(sp, label.node, root(sp))
+    cost = route_cost(sp, label)
 
     return Column(cost, route, nodes)
 end
@@ -76,7 +81,12 @@ function hbuildroutes(sp, labels)
 
     for d in 1:vehicle_capacity(sp)
         for i in 2:n_nodes(sp)
-            rc = labels[i, d].reduced_cost + reduced_cost(sp, i, root(sp))
+            # rc = labels[i, d].reduced_cost + reduced_cost(sp, i, root(sp))
+            if labels[i, d].id == -1
+                continue
+            end
+
+            @inbounds rc = route_reduced_cost(sp, labels[i, d])
 
             if rc > -myeps
                 continue
