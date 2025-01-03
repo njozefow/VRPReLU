@@ -86,6 +86,7 @@ function build_ng(sp::Subproblem)
 
         # TODO: une combinaison des deux ? mais cela n'a un sens que si on dépasse la soft bound
         sort!(adj, by=x -> adjacent(sp, i, x) ? distance(sp, i, x) + sp.picost[i, x] : Inf)
+        # sort!(adj, by=x -> adjacent(sp, i, x) ? sp.picost[i, x] : Inf)
 
         for j in 1:delta-1
             @inbounds sp.ng[j, i] = adj[j]

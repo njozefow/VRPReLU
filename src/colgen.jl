@@ -22,11 +22,12 @@ end
 
 @inline colgen(param, master::Master, sp::Subproblem) = colgen(param, master, sp, Vector{Tuple{Int,Int,Int}}())
 function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vector{Tuple{Int,Int,Int}}, upperbound=Inf)
-    # i = 0
-
-    # prevpi = [0.0 for _ in 1:n_nodes(sp)+1]
+    iteration = 0
+    dp_iteration = 0
 
     while true
+        iteration += 1
+
         optimize(master, remaining_time(param))
         # prevpi = dual.(master.constraints)
 
@@ -51,10 +52,14 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
             continue
         end
 
+        dp_iteration += 1
+
         if call_ngdynprog(sp, master, lb)
             continue
         end
 
         break
     end
+
+    return iteration, dp_iteration
 end

@@ -133,7 +133,7 @@ function dominates(lone, ltwo)
     end
 
     # TODO: dominance sur distance -> seulement si soft limit ?
-    if lone.distance > ltwo.distance
+    if lone.distance > ltwo.distance + myeps
         return false
     end
 
