@@ -1,14 +1,10 @@
 mutable struct Subproblem
     instance::Instance
-
     pi::Vector{Float64}
-
     picost::Matrix{Float64}
-
     ng::Matrix{Int}
-
+    adj::Vector{Vector{Tuple{Int,Int,Float64,Int}}} # node, distance, reduced_cost, travel_time
     gap::Float64
-
     tbounds::Array{Float64,3}
 end
 
@@ -21,9 +17,14 @@ function Subproblem(instance::Instance)
 
     ng = zeros(Int, delta - 1, n)
 
+    adj = Vector{Vector{Tuple{Int,Int,Int}}}()
+    for _ in 1:n
+        push!(adj, Vector{Tuple{Int,Int,Int}}())
+    end
+
     tbounds = [Inf for _ in 1:128, _ in 1:n, _ in 1:tmax(instance)]
 
-    return Subproblem(instance, pi, picost, ng, 0.0, tbounds)
+    return Subproblem(instance, pi, picost, ng, adj, 0.0, tbounds)
 end
 
 @inline n_nodes(sp::Subproblem) = n_nodes(sp.instance)
@@ -41,6 +42,8 @@ end
 
 @inline request_quantity(sp::Subproblem, i::Int) = request_quantity(sp.instance, i)
 @inline request_service_time(sp::Subproblem, i::Int) = request_service_time(sp.instance, i)
+
+@inline adj(sp::Subproblem, i::Int) = @inbounds sp.adj[i]
 
 @inline distance(sp::Subproblem, i::Int, j::Int) = distance(sp.instance, i, j)
 @inline traveltime(sp::Subproblem, i::Int, j::Int) = traveltime(sp.instance, i, j)
@@ -63,14 +66,24 @@ function set(sp::Subproblem, constraints::Vector{ConstraintRef})
         sp.pi[i] = dual(constraints[i])
     end
 
-    for i in 1:n
-        for j in 1:i-1
-            sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
-        end
+    # for i in 1:n
+    #     for j in 1:i-1
+    #         sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
+    #     end
 
-        sp.picost[i, i] = Inf
+    #     sp.picost[i, i] = Inf
 
-        for j in i+1:n
+    #     for j in i+1:n
+    #         sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
+    #     end
+    # end
+
+    fill!(sp.picost, Inf)
+
+    for i in 2:n
+        sp.picost[root(sp), i] = -sp.pi[root(sp)] / 2.0 - sp.pi[i] / 2.0
+        sp.picost[i, root(sp)] = -sp.pi[i] / 2.0 - sp.pi[root(sp)] / 2.0
+        for (j, dij, tij) in sp.instance.adj[i]
             sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
         end
     end
@@ -93,6 +106,23 @@ function build_ng(sp::Subproblem)
         end
 
         sort!(view(sp.ng, :, i))
+    end
+end
+
+function build_adj(sp::Subproblem)
+    n = n_nodes(sp)
+
+    for i in 2:n
+        @inbounds adj = sp.adj[i]
+        empty!(adj)
+
+        for j in 2:n
+            @inbounds if sp.picost[i, j] == Inf
+                continue
+            end
+
+            @inbounds push!(adj, (j, distance(sp, i, j), sp.picost[i, j], traveltime(sp, i, j)))
+        end
     end
 end
 

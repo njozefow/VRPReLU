@@ -261,30 +261,8 @@ function solve(path::String, type::String, ratio=0.75)
 
     path = joinpath(path, type)
 
-    # for file in readdir(path)
-    #     if occursin(".xml", file) && (occursin("025", file))
-    #         for ratio in [0.25, 0.5, 0.75, 1]
-    #             name = split(file, ".")[1]
-    #             filename = joinpath(path, "$name.xml")
-    #             filerelu = joinpath(path, "$name.relu")
-    #             println(joinpath(path, "$name.xml"))
-    #             flush(stdout)
-    #             # instance = read(joinpath(path, "$name.xml"))
-    #             instance = read(filename, filerelu, ratio)
-    #             res = solve(instance)
-    #             # push!(df, (name, res.lower_bound, res.cg_ended, res.lb_cpu_time, res.isint, res.upperbound, round(res.gap, digits=2), res.ubtime, res.totaltime, res.complete))
-
-    #             push!(df, (name, n_vehicles(instance), soft_distance_limit(instance), hard_distance_limit(instance), res.lower_bound, res.iteration, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
-
-    #             # io = open(name * ".relu", "w")
-    #             # println(io, res.max_length, " ", res.nb_vehicles)
-    #             # close(io)
-    #         end
-    #     end
-    # end
-
     for file in readdir(path)
-        if occursin(".xml", file) && (occursin("050", file))
+        if occursin(".xml", file) && (occursin("025", file))
             for ratio in [0.25, 0.5, 0.75, 1]
                 name = split(file, ".")[1]
                 filename = joinpath(path, "$name.xml")
@@ -304,6 +282,28 @@ function solve(path::String, type::String, ratio=0.75)
             end
         end
     end
+
+    # for file in readdir(path)
+    #     if occursin(".xml", file) && (occursin("050", file))
+    #         for ratio in [0.25, 0.5, 0.75, 1]
+    #             name = split(file, ".")[1]
+    #             filename = joinpath(path, "$name.xml")
+    #             filerelu = joinpath(path, "$name.relu")
+    #             println(joinpath(path, "$name.xml"))
+    #             flush(stdout)
+    #             # instance = read(joinpath(path, "$name.xml"))
+    #             instance = read(filename, filerelu, ratio)
+    #             res = solve(instance)
+    #             # push!(df, (name, res.lower_bound, res.cg_ended, res.lb_cpu_time, res.isint, res.upperbound, round(res.gap, digits=2), res.ubtime, res.totaltime, res.complete))
+
+    #             push!(df, (name, n_vehicles(instance), soft_distance_limit(instance), hard_distance_limit(instance), res.lower_bound, res.iteration, res.heur_iteration, res.dp_iteration, res.nbcolumns_elem_lb, res.nbcolumns_nonelem_lb, res.lb_cpu_time, res.isint, res.nbcolumns_enum, res.enum_cpu_time, res.upper_bound, round(res.gap, digits=2), res.upper_bound_cpu_time, res.totaltime, res.complete))
+
+    #             # io = open(name * ".relu", "w")
+    #             # println(io, res.max_length, " ", res.nb_vehicles)
+    #             # close(io)
+    #         end
+    #     end
+    # end
 
     println(df)
 

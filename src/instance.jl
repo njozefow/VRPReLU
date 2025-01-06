@@ -33,6 +33,7 @@ struct Instance
     n_vehicles::Int
     soft_distance_limit::Int
     hard_distance_limit::Int
+    adj::Vector{Vector{Tuple{Int,Int,Int}}}
 end
 
 @inline n_nodes(instance::Instance) = length(instance.nodes)
@@ -193,5 +194,36 @@ function read(filename::String, filerelu, ratio)
     n_vehicles = parse(Int, line[2])
     close(io)
 
-    return Instance(nodes, fleet, requests, distance, traveltime, n_vehicles, soft_distance_limit, hard_distance_limit)
+    adj = Vector{Vector{Tuple{Int,Int,Int}}}()
+    push!(adj, Vector{Tuple{Int,Int,Int}}())
+    for i in 2:length(nodes)
+        v = Vector{Tuple{Int,Int,Int}}()
+
+        for j in 2:length(nodes)
+            if i == j
+                continue
+            end
+
+            eta = requests[i].twstart + traveltime[i, j]
+            if eta > requests[j].twend
+                continue
+            end
+
+            eta = max(eta, requests[j].twstart)
+            eta += traveltime[j, 1]
+            if eta > fleet[1].max_travel_time
+                continue
+            end
+
+            if requests[i].quantity + requests[j].quantity > fleet[1].capacity
+                continue
+            end
+
+            push!(v, (j, distance[i, j], traveltime[i, j]))
+        end
+
+        push!(adj, v)
+    end
+
+    return Instance(nodes, fleet, requests, distance, traveltime, n_vehicles, soft_distance_limit, hard_distance_limit, adj)
 end

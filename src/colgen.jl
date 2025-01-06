@@ -46,6 +46,7 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
         set(sp, master.constraints)
         set_branching(sp, branchments)
         build_ng(sp)
+        build_adj(sp)
 
         # TODO: A remettre
         if call_heuristic(sp, master)

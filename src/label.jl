@@ -61,6 +61,27 @@ end
 @inline path_length(sp, label) = label.distance + soft_distance_limit(sp)
 @inline route_length(sp, label) = label.distance + distance(sp, label.node, root(sp)) + soft_distance_limit(sp)
 
+function Label(sp, lfrom::Label, j, dij, pij, tij, lid)
+    lto = Label(sp)
+
+    lto.id = lid
+
+    lto.pid = lfrom.id
+    lto.pnode = lfrom.node
+    lto.pload = lfrom.load
+
+    lto.node = j
+
+    lto.picost = lfrom.picost + pij
+    lto.distance = lfrom.distance + dij
+    lto.rtime = max(lfrom.rtime + tij, request_twstart(sp, j))
+    lto.load = lfrom.load + request_quantity(sp, j)
+
+    lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
+
+    return lto
+end
+
 function set_extend(sp, lfrom, lto, node, lid)
     lto.id = lid
 
@@ -116,6 +137,36 @@ function allowed(label::Label, node, sp)
     end
 
     if ngin(sp.ng, label.node, label.u, node)
+        return false
+    end
+
+    return true
+end
+
+function allowed(label::Label, j, dij, tij, sp)
+    if label.node == j
+        return false
+    end
+
+    if label.load + request_quantity(sp, j) > vehicle_capacity(sp)
+        return false
+    end
+
+    if path_length(sp, label) + dij > hard_distance_limit(sp)
+        return false
+    end
+
+    if path_length(sp, label) + dij + distance(sp, j, root(sp)) > hard_distance_limit(sp)
+        return false
+    end
+
+    rtime = label.rtime + tij
+
+    if rtime > request_twend(sp, j)
+        return false
+    end
+
+    if ngin(sp.ng, label.node, label.u, j)
         return false
     end
 

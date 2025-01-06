@@ -70,12 +70,17 @@ function ngdprun(sp, buckets, lid)
             end
 
             for l in buckets[i, d]
-                for j in 2:n_nodes(sp)
-                    if !allowed(l, j, sp)
+                # for j in 2:n_nodes(sp)
+                for (j, dij, pij, tij) in adj(sp, i)
+                    # if !allowed(l, j, sp)
+                    #     continue
+                    # end
+                    if !allowed(l, j, dij, tij, sp)
                         continue
                     end
 
-                    newlabel = Label(sp, l, j, lid)
+                    # newlabel = Label(sp, l, j, lid)
+                    newlabel = Label(sp, l, j, dij, pij, tij, lid)
 
                     ok = true
 

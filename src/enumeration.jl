@@ -63,16 +63,22 @@ function enumrun(param, sp, buckets, lid)
             end
 
             @inbounds for l in buckets[i, d]
-                for j in 2:n_nodes(sp)
+                # for j in 2:n_nodes(sp)
+                for (j, dij, rij, tij) in adj(sp, i)
                     if timeout(param)
                         return
                     end
 
-                    if !allowed(l, j, sp)
+                    # if !allowed(l, j, sp)
+                    #     continue
+                    # end
+
+                    if !allowed(l, j, tij, sp)
                         continue
                     end
 
-                    newlabel = EnumLabel(sp, l, j, lid)
+                    # newlabel = EnumLabel(sp, l, j, lid)
+                    newlabel = EnumLabel(sp, l, j, dij, rij, tij, lid)
 
                     cb = search_tcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime)
 

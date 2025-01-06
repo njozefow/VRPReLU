@@ -28,6 +28,29 @@ function EnumLabel(sp, node, id)
     return EnumLabel(id, 0, root(sp), 0, node, redcost, dist, rtime, load, BitSet(node))
 end
 
+function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
+    lto = EnumLabel()
+
+    lto.id = lid
+
+    lto.pid = lfrom.id
+    lto.pnode = lfrom.node
+    lto.pload = lfrom.load
+
+    lto.node = j
+
+    lto.reduced_cost = lfrom.reduced_cost + rij
+
+    lto.distance = lfrom.distance + dij
+    lto.rtime = max(lfrom.rtime + tij, request_twstart(sp, j))
+    lto.load = lfrom.load + request_quantity(sp, j)
+
+    lto.u = copy(lfrom.u)
+    push!(lto.u, j)
+
+    return lto
+end
+
 function EnumLabel(sp, lfrom, node, lid)
     lto = EnumLabel()
 
@@ -49,6 +72,26 @@ function EnumLabel(sp, lfrom, node, lid)
     push!(lto.u, node)
 
     return lto
+end
+
+function allowed(label::EnumLabel, j, tij, sp)
+    if label.node == j
+        return false
+    end
+
+    if label.load + request_quantity(sp, j) > vehicle_capacity(sp)
+        return false
+    end
+
+    if label.rtime + tij > request_twend(sp, j)
+        return false
+    end
+
+    if in(j, label.u)
+        return false
+    end
+
+    return true
 end
 
 function allowed(label::EnumLabel, node, sp)
