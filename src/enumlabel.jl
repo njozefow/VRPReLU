@@ -25,7 +25,9 @@ function EnumLabel(sp, node, id)
     rtime = max(traveltime(sp, root(sp), node) + tmin(sp), request_twstart(sp, node))
     load = request_quantity(sp, node)
 
-    return EnumLabel(id, 0, root(sp), 0, node, redcost, dist, rtime, load, BitSet(node))
+    u = BitSet(node)
+
+    return EnumLabel(id, 0, root(sp), 0, node, redcost, dist, rtime, load, u)
 end
 
 function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
@@ -47,29 +49,6 @@ function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
 
     lto.u = copy(lfrom.u)
     push!(lto.u, j)
-
-    return lto
-end
-
-function EnumLabel(sp, lfrom, node, lid)
-    lto = EnumLabel()
-
-    lto.id = lid
-
-    lto.pid = lfrom.id
-    lto.pnode = lfrom.node
-    lto.pload = lfrom.load
-
-    lto.node = node
-
-    lto.reduced_cost = lfrom.reduced_cost + reduced_cost(sp, lfrom.node, node)
-
-    lto.distance = lfrom.distance + distance(sp, lfrom.node, node)
-    lto.rtime = max(lfrom.rtime + traveltime(sp, lfrom.node, node), request_twstart(sp, node))
-    lto.load = lfrom.load + request_quantity(sp, node)
-
-    lto.u = copy(lfrom.u)
-    push!(lto.u, node)
 
     return lto
 end
@@ -120,51 +99,15 @@ function allowed(label::EnumLabel, node, sp)
         return false
     end
 
-    # TODO: faut-il le mettre ici pour ne pas générer le label inutilement ?
-    # Est-ce que l'on ne dépasse pas le gap
-    # bound = search_bound(sp, node, load, label.u)
-    # if label.reduced_cost + reduced_cost(sp, label.node, node) + bound > sp.gap - myeps
-    #     return false
-    # end
-
     return true
 end
 
-function dominate_distance(lone::EnumLabel, ltwo::EnumLabel)
-    if !issetequal(lone.u, ltwo.u)
-        return false
-    end
-
-    if lone.rtime != ltwo.rtime
-        return false
-    end
-
-    if abs(lone.reduced_cost - ltwo.reduced_cost) > myeps
-        return false
-    end
-
-    return lone.distance < ltwo.distance
-end
-
 function dominates(lone::EnumLabel, ltwo::EnumLabel)
-    if lone.load != ltwo.load
-        return false
-    end
-
-    if !issetequal(lone.u, ltwo.u)
-        return false
-    end
-
     if lone.rtime > ltwo.rtime
         return false
     end
 
-    # TODO: faut-il le remettre ou si rtime == ltwo.rtime, on différencie sur la distance ?
-    # if lone.distance > ltwo.distance
-    #     return false
-    # end
-
-    if lone.reduced_cost > ltwo.reduced_cost + myeps
+    if !issetequal(lone.u, ltwo.u)
         return false
     end
 

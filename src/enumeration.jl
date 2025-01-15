@@ -1,27 +1,62 @@
-function push_bucket(bucket, label::EnumLabel)
-    i = 1
-    sure = false
+function push(bucket, label::EnumLabel)
+    pos = 1
 
-    while i <= length(bucket)
-        @inbounds b = bucket[i]
+    while !isend(bucket, pos)
+        @inbounds l = bucket[pos]
 
-        if !sure && dominates(b, label)
+        if l.reduced_cost >= label.reduced_cost - myeps
+            break
+        elseif dominates(l, label)
             return false
-        elseif dominates(label, b)
-            sure = true
-            @inbounds bucket[i] = bucket[end]
-            pop!(bucket)
         else
-            i += 1
+            pos += 1
         end
     end
 
-    push!(bucket, label)
+    # TODO: traiter les labels egaux
+    while !isend(bucket, pos)
+        @inbounds l = bucket[pos]
+
+        if abs(l.reduced_cost - label.reduced_cost) >= myeps
+            break
+        elseif !issetequal(l.u, label.u)
+            pos += 1
+        elseif label.rtime >= label.rtime
+            return false
+        else
+            deleteat!(bucket, pos)
+        end
+    end
+
+
+    while !isend(bucket, pos)
+        @inbounds l = bucket[pos]
+
+        if !dominates(label, l)
+            break
+        else
+            deleteat!(bucket, pos)
+        end
+    end
+
+    addpos = pos
+    pos += 1
+
+    while !isend(bucket, pos)
+        @inbounds l = bucket[pos]
+
+        if dominates(label, l)
+            deleteat!(bucket, pos)
+        else
+            pos += 1
+        end
+    end
+
+    insert!(bucket, addpos, label)
 
     return true
 end
 
-# TODO: Corriger pour utiliser le temps
 function enuminit(sp)
     lid = 1
 
@@ -69,15 +104,10 @@ function enumrun(param, sp, buckets, lid)
                         return
                     end
 
-                    # if !allowed(l, j, sp)
-                    #     continue
-                    # end
-
                     if !allowed(l, j, tij, sp)
                         continue
                     end
 
-                    # newlabel = EnumLabel(sp, l, j, lid)
                     newlabel = EnumLabel(sp, l, j, dij, rij, tij, lid)
 
                     cb = search_tcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime)
@@ -86,7 +116,7 @@ function enumrun(param, sp, buckets, lid)
                         continue
                     end
 
-                    @inbounds if push_bucket(buckets[j, newlabel.load], newlabel)
+                    @inbounds if push(buckets[j, newlabel.load], newlabel)
                         lid += 1
                     end
                 end
