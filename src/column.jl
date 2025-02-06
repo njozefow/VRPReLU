@@ -2,6 +2,7 @@ mutable struct Column
     cost::Int
     route::Vector{Int}
     nodes::BitSet
+    # elem::Bool
 end
 
 function print_column(c::Column)

@@ -104,6 +104,15 @@ function ngbuildroute(sp, buckets, label)
     return Column(cost, route, nodes)
 end
 
+function insert(routes, rc, route)
+    push!(routes, (rc, route))
+    pos = length(routes)
+    while pos > 2 && routes[pos][1] < routes[pos-1][1]
+        routes[pos], routes[pos-1] = routes[pos-1], routes[pos]
+        pos -= 1
+    end
+end
+
 function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
     for l in bucket
         rc = route_reduced_cost(sp, l)
@@ -124,8 +133,9 @@ function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
             pop!(routes)
         end
 
-        push!(routes, (rc, route))
-        sort!(routes, by=x -> x[1])
+        # push!(routes, (rc, route))
+        # sort!(routes, by=x -> x[1])
+        insert(routes, rc, route)
     end
 end
 
