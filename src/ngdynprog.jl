@@ -13,56 +13,7 @@ function ngdpinit(sp)
     return lid, buckets
 end
 
-
-# function push_bucket(bucket, label::Label)
-#     i = 1
-#     sure = false
-
-#     while i <= length(bucket)
-#         @inbounds b = bucket[i]
-
-#         if !sure && dominates(b, label)
-#             return false
-#         elseif dominates(label, b)
-#             sure = true
-#             @inbounds bucket[i] = bucket[end]
-#             pop!(bucket)
-#         else
-#             i += 1
-#         end
-#     end
-
-#     push!(bucket, label)
-
-#     return true
-# end
-
-# function dominate_bucket(bucket, label)
-#     for b in bucket
-#         if dominates(b, label)
-#             return true
-#         end
-#     end
-
-#     return false
-# end
-
-# function clean_bucket(bucket, label)
-#     pos = 1
-
-#     while pos <= length(bucket)
-#         @inbounds blabel = bucket[pos]
-
-#         if dominates(label, blabel)
-#             @inbounds bucket[pos] = bucket[end]
-#             pop!(bucket)
-#         else
-#             pos += 1
-#         end
-#     end
-# end
-
-function ngdprun(sp, buckets, lid)
+function ngdprun(sp, buckets, lid, dom)
     for d in 1:vehicle_capacity(sp)
         for i in 2:n_nodes(sp)
             if isempty(buckets[i, d])
@@ -70,16 +21,11 @@ function ngdprun(sp, buckets, lid)
             end
 
             for l in buckets[i, d]
-                # for j in 2:n_nodes(sp)
                 for (j, dij, pij, tij) in adj(sp, i)
-                    # if !allowed(l, j, sp)
-                    #     continue
-                    # end
                     if !allowed(l, j, dij, tij, sp)
                         continue
                     end
 
-                    # newlabel = Label(sp, l, j, lid)
                     newlabel = Label(sp, l, j, dij, pij, tij, lid)
 
                     ok = true
@@ -91,15 +37,13 @@ function ngdprun(sp, buckets, lid)
                             continue
                         end
 
-                        if dominate(bucket, newlabel)
+                        if dominate(bucket, newlabel, dom)
                             ok = false
                             break
                         end
                     end
 
-                    @inbounds if ok && push(buckets[j, newlabel.load], newlabel)
-                        lid += 1
-
+                    @inbounds if ok && push(buckets[j, newlabel.load], newlabel, dom)
                         #TODO: nettoyer les buckets plus grands
                         for q in newlabel.load+1:vehicle_capacity(sp)
 
@@ -109,8 +53,10 @@ function ngdprun(sp, buckets, lid)
                                 continue
                             end
 
-                            clean(bucket, newlabel)
+                            clean(bucket, newlabel, dom)
                         end
+
+                        lid += 1
                     end
                 end
             end
@@ -183,9 +129,23 @@ function ngbuildroutes(sp, buckets, bucket, routes)
     return bestrc
 end
 
+# function ngbuildroutes(sp, buckets, nrc_routes)
+#     routes = Vector{Column}()
+
+#     for (i, q, id) in nrc_routes
+#         label = search_bucket(buckets[i, q], id)
+
+#         route = ngbuildroute(sp, buckets, label)
+
+#         push!(routes, route)
+#     end
+
+#     return routes
+# end
+
 function ngbuildroutes(sp, buckets)
     routes = Vector{Column}()
-    bestrc = Inf
+    # bestrc = Inf
 
     for d in 1:vehicle_capacity(sp)
         for i in 2:n_nodes(sp)
@@ -197,19 +157,67 @@ function ngbuildroutes(sp, buckets)
 
             rc = ngbuildroutes(sp, buckets, bucket, routes)
 
-            if rc < bestrc - myeps
-                bestrc = rc
-            end
+            # if rc < bestrc - myeps
+            #     bestrc = rc
+            # end
         end
     end
 
-    return bestrc, routes
+    # return bestrc, routes
+    return routes
 end
 
-function ngdynprog(sp)
+function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
+    for l in bucket
+        rc = route_reduced_cost(sp, l)
+
+        # consider only negative reduced costs
+        if rc > -myeps
+            continue
+        end
+
+        # consider only the maxroutes best routes
+        if length(routes) == maxroutes && rc > routes[end][1] - myeps
+            continue
+        end
+
+        route = ngbuildroute(sp, buckets, l)
+
+        if length(routes) == maxroutes
+            pop!(routes)
+        end
+
+        push!(routes, (rc, route))
+        sort!(routes, by=x -> x[1])
+    end
+end
+
+function ngbuildroutes(sp, buckets, maxroutes)
+    routes = Vector{Tuple{Float64,Column}}()
+
+    for d in 1:vehicle_capacity(sp)
+        for i in 2:n_nodes(sp)
+            @inbounds bucket = buckets[i, d]
+
+            if isempty(bucket)
+                continue
+            end
+
+            ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
+        end
+    end
+
+    return routes
+end
+
+function ngdynprog(sp, full)
     lid, buckets = ngdpinit(sp)
 
-    ngdprun(sp, buckets, lid)
+    dom = full ? dominates_full : dominates_ressources
 
-    return ngbuildroutes(sp, buckets)
+    ngdprun(sp, buckets, lid, dom)
+
+    return ngbuildroutes(sp, buckets, full ? max_exact_routes : max_heuristic_routes)
+    # return ngbuildroutes(sp, buckets)
+    # return ngbuildroutes(sp, buckets, nrc_routes)
 end

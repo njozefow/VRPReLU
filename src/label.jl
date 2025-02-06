@@ -103,45 +103,45 @@ end
 @inline same_node(n1, n2) = n1 == n2
 @inline enough_capacity(load, quantity, capacity) = load + quantity <= capacity
 
-function allowed(label::Label, node, sp)
-    if same_node(label.node, node)
-        return false
-    end
+# function allowed(label::Label, node, sp)
+#     if same_node(label.node, node)
+#         return false
+#     end
 
-    if !adjacent(sp, label.node, node)
-        return false
-    end
+#     if !adjacent(sp, label.node, node)
+#         return false
+#     end
 
-    if !enough_capacity(label.load, request_quantity(sp, node), vehicle_capacity(sp))
-        return false
-    end
+#     if !enough_capacity(label.load, request_quantity(sp, node), vehicle_capacity(sp))
+#         return false
+#     end
 
-    if path_length(sp, label) + distance(sp, label.node, node) > hard_distance_limit(sp)
-        return false
-    end
+#     if path_length(sp, label) + distance(sp, label.node, node) > hard_distance_limit(sp)
+#         return false
+#     end
 
-    if path_length(sp, label) + distance(sp, label.node, node) + distance(sp, node, root(sp)) > hard_distance_limit(sp)
-        return false
-    end
+#     if path_length(sp, label) + distance(sp, label.node, node) + distance(sp, node, root(sp)) > hard_distance_limit(sp)
+#         return false
+#     end
 
-    rtime = label.rtime + traveltime(sp, label.node, node)
+#     rtime = label.rtime + traveltime(sp, label.node, node)
 
-    if rtime > request_twend(sp, node)
-        return false
-    end
+#     if rtime > request_twend(sp, node)
+#         return false
+#     end
 
-    rtime = max(rtime, request_twstart(sp, node))
+#     rtime = max(rtime, request_twstart(sp, node))
 
-    if rtime + traveltime(sp, node, root(sp)) > vehicle_max_travel_time(sp)
-        return false
-    end
+#     if rtime + traveltime(sp, node, root(sp)) > vehicle_max_travel_time(sp)
+#         return false
+#     end
 
-    if ngin(sp.ng, label.node, label.u, node)
-        return false
-    end
+#     if ngin(sp.ng, label.node, label.u, node)
+#         return false
+#     end
 
-    return true
-end
+#     return true
+# end
 
 function allowed(label::Label, j, dij, tij, sp)
     if label.node == j
@@ -174,29 +174,28 @@ function allowed(label::Label, j, dij, tij, sp)
 end
 
 # TODO: Vérifier notamment si la dominance de Pareto suffit
-function dominates(lone, ltwo)
-    if lone.load > ltwo.load
-        return false
-    end
-
+function dominates_full(lone, ltwo)
     if lone.rtime > ltwo.rtime
         return false
     end
 
-    # TODO: dominance sur distance -> seulement si soft limit ?
     if lone.distance > ltwo.distance + myeps
         return false
     end
 
-    # TODO: ici ce n'est pas cela
-    # if lone.reduced_cost > ltwo.reduced_cost + myeps
-    #     return false
-    # end
-    if path_reduced_cost(lone) > path_reduced_cost(ltwo) + myeps
+    if lone.u & ltwo.u != lone.u
         return false
     end
 
-    if lone.u & ltwo.u != lone.u
+    return true
+end
+
+function dominates_ressources(lone, ltwo)
+    if lone.rtime > ltwo.rtime
+        return false
+    end
+
+    if lone.distance > ltwo.distance + myeps
         return false
     end
 

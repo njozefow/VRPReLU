@@ -30,6 +30,7 @@ function Master(instance)
 
     constraints = Vector{ConstraintRef}()
     push!(constraints, @constraint(model, n_vehicles(instance) * artificial_x == n_vehicles(instance), set_string_name = false))
+    # push!(constraints, @constraint(model, 25 * artificial_x <= 25, set_string_name = false))
     for i in 2:n_nodes(instance)
         push!(constraints, @constraint(model, artificial_x == 1, set_string_name = false))
     end

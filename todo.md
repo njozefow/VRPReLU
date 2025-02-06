@@ -5,4 +5,11 @@
 - voir le ratio label généré label domine
 
 
-   c_ij - pi_i / 2 - pi_j / 2
+- defintion double ng
+- heuristics : tqheur or progressive / heavyheuristic : same but with the ressources considered
+- pareto completion bound
+- limit the number of generated labels
+- add stabilization
+
+- Full run and keep the best routesp
+- limited run and keep the best routes

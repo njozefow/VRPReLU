@@ -23,15 +23,22 @@ function hrun(sp, labels, lid)
                 continue
             end
 
-            for j in 2:n_nodes(sp)
-                if !allowed(label, j, sp)
+            # for j in 2:n_nodes(sp)
+            #     if !allowed(label, j, sp)
+            #         continue
+            #     end
+            for (j, dij, pij, tij) in adj(sp, i)
+                if !allowed(label, j, dij, tij, sp)
                     continue
                 end
 
                 labelto = labels[j, label.load+request_quantity(sp, j)]
 
+                # TODO: Il y a une erreur ici
                 # rc = label.reduced_cost + reduced_cost(sp, label.node, j)
-                rc = path_reduced_cost(label)
+                # rc = path_reduced_cost(label)
+                cost = max(0, label.distance + dij)
+                rc = cost + label.picost + pij
 
                 if rc < path_reduced_cost(labelto) - myeps
                     set_extend(sp, label, labelto, j, lid)

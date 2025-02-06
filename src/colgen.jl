@@ -9,15 +9,29 @@ function call_heuristic(sp::Subproblem, master::Master)
 end
 
 function call_ngdynprog(sp::Subproblem, master::Master, lb, upper_bound=typemax(Int))
-    bestrc, routes = ngdynprog(sp)
+    # bestrc, routes = ngdynprog(sp, true)
+    routes = ngdynprog(sp, true)
 
     # println("nb columns = ", length(routes))
 
-    for column in routes
+    for (_, column) in routes
         push_column(master, column)
     end
 
-    return !isempty(routes) && lb + bestrc < upper_bound - 1.0 + myeps
+    return !isempty(routes) # && lb + bestrc < upper_bound - 1.0 + myeps
+end
+
+function call_ngdynprog_heur(sp::Subproblem, master::Master)
+    # bestrc, routes = ngdynprog(sp, false)
+    routes = ngdynprog(sp, false)
+
+    # println("nb columns = ", length(routes))
+
+    for (_, column) in routes
+        push_column(master, column)
+    end
+
+    return !isempty(routes)
 end
 
 @inline colgen(param, master::Master, sp::Subproblem) = colgen(param, master, sp, Vector{Tuple{Int,Int,Int}}())
@@ -25,8 +39,12 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
     iteration = 0
     dp_iteration = 0
 
+    status = 0
+
     while true
         iteration += 1
+
+        # println("iteration ", iteration)
 
         optimize(master, remaining_time(param))
         # prevpi = dual.(master.constraints)
@@ -45,17 +63,25 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
 
         set(sp, master.constraints)
         set_branching(sp, branchments)
-        build_ng(sp)
         build_adj(sp)
+        build_ng(sp)
 
         # TODO: A remettre
-        if call_heuristic(sp, master)
+        if status == 0 && call_heuristic(sp, master)
             continue
+        elseif status == 0
+            status = 1
+        end
+
+        if status == 1 && call_ngdynprog_heur(sp, master)
+            continue
+        elseif status == 1
+            status = 2
         end
 
         dp_iteration += 1
 
-        if call_ngdynprog(sp, master, lb)
+        if status == 2 && call_ngdynprog(sp, master, lb)
             continue
         end
 

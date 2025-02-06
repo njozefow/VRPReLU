@@ -1,6 +1,6 @@
 @inline isend(bucket, i) = i > length(bucket)
 
-function push(bucket, label::Label)
+function push(bucket, label::Label, dom)
     pos = 1
 
     label_reduced_cost = path_reduced_cost(label)
@@ -10,7 +10,7 @@ function push(bucket, label::Label)
 
         if path_reduced_cost(l) >= label_reduced_cost - myeps
             break
-        elseif dominates(l, label)
+        elseif dom(l, label)
             return false
         else
             pos += 1
@@ -22,7 +22,7 @@ function push(bucket, label::Label)
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if !dominates(label, l)
+        if dom(label, l)
             break
         else
             deleteat!(bucket, pos)
@@ -35,7 +35,7 @@ function push(bucket, label::Label)
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if dominates(label, l)
+        if dom(label, l)
             deleteat!(bucket, pos)
         else
             pos += 1
@@ -48,7 +48,7 @@ function push(bucket, label::Label)
 end
 
 # Check if label is dominated by a label in the bucket
-function dominate(bucket, label::Label)
+function dominate(bucket, label::Label, dom)
     pos = 1
 
     label_reduced_cost = path_reduced_cost(label)
@@ -58,7 +58,7 @@ function dominate(bucket, label::Label)
 
         if path_reduced_cost(l) > label_reduced_cost - myeps
             break
-        elseif dominates(l, label)
+        elseif dom(l, label)
             return true
         else
             pos += 1
@@ -69,7 +69,7 @@ function dominate(bucket, label::Label)
 end
 
 # Remove labels in bucket dominated by label
-function clean(bucket, label::Label)
+function clean(bucket, label::Label, dom)
     pos = length(bucket)
 
     label_reduced_cost = path_reduced_cost(label)
@@ -79,7 +79,7 @@ function clean(bucket, label::Label)
 
         if path_reduced_cost(l) < label_reduced_cost + myeps
             break
-        elseif dominates(label, l)
+        elseif dom(label, l)
             deleteat!(bucket, pos)
         end
 
