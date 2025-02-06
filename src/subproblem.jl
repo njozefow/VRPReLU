@@ -66,18 +66,6 @@ function set(sp::Subproblem, constraints::Vector{ConstraintRef})
         sp.pi[i] = dual(constraints[i])
     end
 
-    # for i in 1:n
-    #     for j in 1:i-1
-    #         sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
-    #     end
-
-    #     sp.picost[i, i] = Inf
-
-    #     for j in i+1:n
-    #         sp.picost[i, j] = -sp.pi[i] / 2.0 - sp.pi[j] / 2.0
-    #     end
-    # end
-
     fill!(sp.picost, Inf)
 
     for i in 2:n

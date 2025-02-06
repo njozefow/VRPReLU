@@ -17,8 +17,6 @@
     u::UInt8 = UInt8(0)
 end
 
-# @inline Label(sp) = Label(-1, 0, 1, 0, -1, Inf, 0, 0, 0, UInt8(0))
-
 Label(sp) = Label(distance=-soft_distance_limit(sp))
 
 function Label(sp, node, id)
@@ -54,7 +52,6 @@ end
 @inline path_cost(label) = max(0, label.distance)
 @inline path_reduced_cost(label) = path_cost(label) + label.picost
 
-# TODO: il faut revoir la formule ici
 @inline route_cost(sp, label) = max(0, label.distance + distance(sp, label.node, root(sp)))
 @inline route_reduced_cost(sp, label) = route_cost(sp, label) + label.picost + picost(sp, label.node, root(sp))
 
@@ -100,48 +97,8 @@ function set_extend(sp, lfrom, lto, node, lid)
     lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, lto.node)
 end
 
-@inline same_node(n1, n2) = n1 == n2
-@inline enough_capacity(load, quantity, capacity) = load + quantity <= capacity
-
-# function allowed(label::Label, node, sp)
-#     if same_node(label.node, node)
-#         return false
-#     end
-
-#     if !adjacent(sp, label.node, node)
-#         return false
-#     end
-
-#     if !enough_capacity(label.load, request_quantity(sp, node), vehicle_capacity(sp))
-#         return false
-#     end
-
-#     if path_length(sp, label) + distance(sp, label.node, node) > hard_distance_limit(sp)
-#         return false
-#     end
-
-#     if path_length(sp, label) + distance(sp, label.node, node) + distance(sp, node, root(sp)) > hard_distance_limit(sp)
-#         return false
-#     end
-
-#     rtime = label.rtime + traveltime(sp, label.node, node)
-
-#     if rtime > request_twend(sp, node)
-#         return false
-#     end
-
-#     rtime = max(rtime, request_twstart(sp, node))
-
-#     if rtime + traveltime(sp, node, root(sp)) > vehicle_max_travel_time(sp)
-#         return false
-#     end
-
-#     if ngin(sp.ng, label.node, label.u, node)
-#         return false
-#     end
-
-#     return true
-# end
+# @inline same_node(n1, n2) = n1 == n2
+# @inline enough_capacity(load, quantity, capacity) = load + quantity <= capacity
 
 function allowed(label::Label, j, dij, tij, sp)
     if label.node == j

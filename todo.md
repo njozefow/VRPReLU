@@ -13,3 +13,4 @@
 
 - Full run and keep the best routesp
 - limited run and keep the best routes
+- favoriser les colonnes élémentaires

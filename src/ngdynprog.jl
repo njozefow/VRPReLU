@@ -1,4 +1,3 @@
-# function ngdpinit(sp::Subproblem)
 function ngdpinit(sp)
     lid = 1
 
@@ -44,7 +43,6 @@ function ngdprun(sp, buckets, lid, dom)
                     end
 
                     @inbounds if ok && push(buckets[j, newlabel.load], newlabel, dom)
-                        #TODO: nettoyer les buckets plus grands
                         for q in newlabel.load+1:vehicle_capacity(sp)
 
                             @inbounds bucket = buckets[j, q]
@@ -104,67 +102,6 @@ function ngbuildroute(sp, buckets, label)
     reverse!(route)
 
     return Column(cost, route, nodes)
-end
-
-function ngbuildroutes(sp, buckets, bucket, routes)
-    bestrc = Inf
-
-    for label in bucket
-        # rc = label.reduced_cost + reduced_cost(sp, label.node, root(sp))
-        rc = route_reduced_cost(sp, label)
-
-        if rc > -myeps
-            continue
-        end
-
-        if rc < bestrc - myeps
-            bestrc = rc
-        end
-
-        route = ngbuildroute(sp, buckets, label)
-
-        push!(routes, route)
-    end
-
-    return bestrc
-end
-
-# function ngbuildroutes(sp, buckets, nrc_routes)
-#     routes = Vector{Column}()
-
-#     for (i, q, id) in nrc_routes
-#         label = search_bucket(buckets[i, q], id)
-
-#         route = ngbuildroute(sp, buckets, label)
-
-#         push!(routes, route)
-#     end
-
-#     return routes
-# end
-
-function ngbuildroutes(sp, buckets)
-    routes = Vector{Column}()
-    # bestrc = Inf
-
-    for d in 1:vehicle_capacity(sp)
-        for i in 2:n_nodes(sp)
-            @inbounds bucket = buckets[i, d]
-
-            if isempty(bucket)
-                continue
-            end
-
-            rc = ngbuildroutes(sp, buckets, bucket, routes)
-
-            # if rc < bestrc - myeps
-            #     bestrc = rc
-            # end
-        end
-    end
-
-    # return bestrc, routes
-    return routes
 end
 
 function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)

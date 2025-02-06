@@ -10,6 +10,9 @@ mutable struct Master
     artificial_x::VariableRef
     artificial_x_present::Bool
 
+    mplus::Vector{VariableRef}
+    mminus::Vector{VariableRef}
+
     constraints::Vector{ConstraintRef}
 end
 
@@ -26,16 +29,32 @@ function Master(instance)
     @variable(model, 0 <= artificial_x)
     artificial_x_present = true
 
+    @variable(model, 0 <= mminus[1:n_nodes(instance)] <= 0.001)
+    @variable(model, 0 <= mplus[1:n_nodes(instance)] <= 0.001)
+
     @objective(model, Min, artificial_weight(instance) * artificial_x)
 
     constraints = Vector{ConstraintRef}()
     push!(constraints, @constraint(model, n_vehicles(instance) * artificial_x == n_vehicles(instance), set_string_name = false))
-    # push!(constraints, @constraint(model, 25 * artificial_x <= 25, set_string_name = false))
     for i in 2:n_nodes(instance)
-        push!(constraints, @constraint(model, artificial_x == 1, set_string_name = false))
+        push!(constraints, @constraint(model, artificial_x + mplus[i] - mminus[i] == 1, set_string_name = false))
     end
 
-    return Master(model, Vector{VariableRef}(), Vector{Column}(), Vector{VariableRef}(), Vector{Column}(), artificial_x, artificial_x_present, constraints)
+    return Master(model, Vector{VariableRef}(), Vector{Column}(), Vector{VariableRef}(), Vector{Column}(), artificial_x, artificial_x_present, mplus, mminus, constraints)
+end
+
+function set_stabilization_obj_coeff(instance, master, pibar)
+    for i in 2:n_nodes(instance)
+        set_objective_coefficient(master.model, master.mplus[i], pibar[i])
+        set_objective_coefficient(master.model, master.mminus[i], -pibar[i])
+    end
+end
+
+function remove_stabilization(instance, master)
+    for i in 2:n_nodes(instance)
+        set_objective_coefficient(master.model, master.mplus[i], 0.0)
+        set_objective_coefficient(master.model, master.mminus[i], 0.0)
+    end
 end
 
 function switch_to_integer(master)

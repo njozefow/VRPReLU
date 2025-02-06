@@ -9,23 +9,17 @@ function call_heuristic(sp::Subproblem, master::Master)
 end
 
 function call_ngdynprog(sp::Subproblem, master::Master, lb, upper_bound=typemax(Int))
-    # bestrc, routes = ngdynprog(sp, true)
     routes = ngdynprog(sp, true)
-
-    # println("nb columns = ", length(routes))
 
     for (_, column) in routes
         push_column(master, column)
     end
 
-    return !isempty(routes) # && lb + bestrc < upper_bound - 1.0 + myeps
+    return !isempty(routes)
 end
 
 function call_ngdynprog_heur(sp::Subproblem, master::Master)
-    # bestrc, routes = ngdynprog(sp, false)
     routes = ngdynprog(sp, false)
-
-    # println("nb columns = ", length(routes))
 
     for (_, column) in routes
         push_column(master, column)
@@ -41,14 +35,14 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
 
     status = 0
 
+    pibar = zeros(Float64, n_nodes(sp))
+
     while true
         iteration += 1
 
-        # println("iteration ", iteration)
+        set_stabilization_obj_coeff(sp.instance, master, pibar)
 
         optimize(master, remaining_time(param))
-        # prevpi = dual.(master.constraints)
-
 
         if timeout(param)
             break
@@ -56,17 +50,14 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
 
         lb = objective_value(master)
 
-        # i += 1
-        # println("iteration ", i)
-        # println("lb = ", lb)
-        # println("artificial variable = ", master.artificial_x_present)
-
         set(sp, master.constraints)
         set_branching(sp, branchments)
         build_adj(sp)
         build_ng(sp)
 
-        # TODO: A remettre
+        # save previous pi
+        copy!(pibar, sp.pi)
+
         if status == 0 && call_heuristic(sp, master)
             continue
         elseif status == 0
@@ -87,6 +78,9 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
 
         break
     end
+
+    remove_stabilization(sp.instance, master)
+    optimize(master, remaining_time(param))
 
     return iteration, dp_iteration
 end

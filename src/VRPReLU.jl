@@ -62,26 +62,7 @@ include("bcmaster.jl")
     # Total algorithm
     totaltime::Float64 = Inf
     complete::Bool = false
-
-    # For generating VRPReLU instances
-    # max_length::Int = 0
-    # nb_vehicles::Int = 0
 end
-
-# mutable struct Result
-#     lower_bound::Float64
-#     cg_ended::Bool
-#     lb_cpu_time::Float64
-#     isint::Bool
-
-#     upperbound::Int
-#     gap::Float64
-#     ubtime::Float64
-
-#     totaltime::Float64
-
-#     complete::Bool
-# end
 
 function __init__()
     global GRB_ENV_REF

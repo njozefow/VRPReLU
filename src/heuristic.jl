@@ -23,10 +23,6 @@ function hrun(sp, labels, lid)
                 continue
             end
 
-            # for j in 2:n_nodes(sp)
-            #     if !allowed(label, j, sp)
-            #         continue
-            #     end
             for (j, dij, pij, tij) in adj(sp, i)
                 if !allowed(label, j, dij, tij, sp)
                     continue
@@ -34,9 +30,6 @@ function hrun(sp, labels, lid)
 
                 labelto = labels[j, label.load+request_quantity(sp, j)]
 
-                # TODO: Il y a une erreur ici
-                # rc = label.reduced_cost + reduced_cost(sp, label.node, j)
-                # rc = path_reduced_cost(label)
                 cost = max(0, label.distance + dij)
                 rc = cost + label.picost + pij
 
@@ -72,12 +65,6 @@ function hbuildroute(sp, labels, i, d)
     push!(route, root(sp))
     reverse!(route)
 
-    if in(-1, route)
-        println("erreur")
-        println(route)
-    end
-
-    # cost = label.distance + distance(sp, label.node, root(sp))
     cost = route_cost(sp, label)
 
     return Column(cost, route, nodes)
@@ -88,7 +75,6 @@ function hbuildroutes(sp, labels)
 
     for d in 1:vehicle_capacity(sp)
         for i in 2:n_nodes(sp)
-            # rc = labels[i, d].reduced_cost + reduced_cost(sp, i, root(sp))
             if labels[i, d].id == -1
                 continue
             end
