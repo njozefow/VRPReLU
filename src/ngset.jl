@@ -45,3 +45,29 @@ function compatible(ng, i, ssng, u)
 
     return true
 end
+
+function ngsubsetequal(ngone, uone::UInt8, ngtwo, utwo::UInt8, node)
+    posone = 1
+    postwo = 1
+
+    @inbounds while posone <= 7 && uone != 0
+        nodeone = ngone[posone, node]
+
+        if uone & 1 == 1
+            while postwo <= 7 && utwo != 0 && ngtwo[postwo, node] < nodeone
+                utwo >>= 1
+                postwo += 1
+            end
+
+            nodetwo = ngtwo[postwo, node]
+            if postwo > 7 || utwo == 0 || (nodeone == nodetwo && utwo & 1 == 0)
+                return false
+            end
+        end
+
+        posone += 1
+        uone >>= 1
+    end
+
+    return true
+end
