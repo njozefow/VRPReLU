@@ -4,6 +4,7 @@ using EzXML
 using JuMP
 using Gurobi
 using DataFrames
+using Statistics
 # using DataStructures
 using CSV
 
@@ -37,7 +38,6 @@ include("searchtree.jl")
 include("tbound.jl")
 include("enumlabel.jl")
 include("enumeration.jl")
-include("bcmaster.jl")
 
 @kwdef mutable struct Result
     # Lower bound computation
@@ -281,7 +281,14 @@ function solve(path::String, type::String, ratio=0.75)
         end
     end
 
-    println(df)
+    # println(df)
+
+    println(describe(df))
+
+    # print average of the columns : nbc_elem_lb, nbc_nonelem_lb, lb_cpu_time
+    # println("nbc_elem_lb: ", mean(df.nbc_elem_lb))
+    # println("nbc_nonelem_lb: ", mean(df.nbc_nonelem_lb))
+    # println("lb_cpu_time: ", mean(df.lb_cpu_time))
 
     CSV.write(type * ".csv", df)
 end

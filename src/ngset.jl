@@ -1,22 +1,12 @@
-"""
-    ngin(ng, j, u, node)::Bool
+import .VRPReLU: delta
 
-Check if a node is in the neighborhood group `ng` for a given position `j` and bitmask `u`.
+const MAX_NG_SIZE = delta - 1
 
-# Arguments
-- `ng`: The neighborhood group matrix.
-- `j`: The position in the neighborhood group.
-- `u`: The bitmask representing the nodes in the neighborhood group.
-- `node`: The node to check.
-
-# Returns
-- `Bool`: `true` if the node is in the neighborhood group, `false` otherwise.
-"""
 function ngin(ng, j, u, node)
-    @inbounds for idx in 1:7
+    @fastmath @inbounds for idx in 1:MAX_NG_SIZE
         if u == 0
             return false
-        elseif u & 1 == 1 && @inbounds ng[idx, j] == node
+        elseif u & 1 == 1 && @fastmath @inbounds ng[idx, j] == node
             return true
         else
             u >>= 1
@@ -26,56 +16,98 @@ function ngin(ng, j, u, node)
     return false
 end
 
-"""
-    ngintersect(ng, i, u, j)::UInt8
+# function ngintersect(ng, i, u, j)::UInt8
+#     v::UInt8 = 0
 
-Compute the intersection of two neighborhood groups.
+#     for posj in reverse(1:MAX_NG_SIZE)
+#         @inbounds node = ng[posj, j]
 
-# Arguments
-- `ng`: The neighborhood group matrix.
-- `i`: The first neighborhood group.
-- `u`: The bitmask for the first neighborhood group.
-- `j`: The second neighborhood group.
+#         if i == node
+#             v |= UInt8(1)
+#         elseif ngin(ng, i, u, node)
+#             v |= UInt8(1)
+#         end
 
-# Returns
-- `UInt8`: The bitmask representing the intersection of the two neighborhood groups.
-"""
-function ngintersect(ng, i, u, j)::UInt8
-    v::UInt8 = 0
+#         v <<= 1
+#     end
 
-    for posj in reverse(1:7)
-        @inbounds node = ng[posj, j]
+#     v >>= 1
 
-        if i == node
-            v |= UInt8(1)
-        elseif ngin(ng, i, u, node)
-            v |= UInt8(1)
-        end
+#     return v
+# end
 
-        v <<= 1
-    end
-
-    v >>= 1
-
-    return v
+# TODO: Il faudra vérifier si cette fonction est plus rapide que l'ancienne et si elle est correcte
+@inline function ngintersect(ng, i, u::UInt8, j)::UInt8
+    ngintersect(ng, i, u, ng, j)
 end
 
-"""
-    compatible(ng, i, ssng, u)::Bool
+function ngintersect(ngfrom, from, ufrom::UInt8, ngto, to)::UInt8
+    result::UInt8 = 0
+    posfrom = 1
 
-Check if two neighborhood groups are compatible.
+    @fastmath @inbounds for posto in 1:MAX_NG_SIZE
+        node_to = ngto[posto, to]
 
-# Arguments
-- `ng`: The neighborhood group matrix.
-- `i`: The first neighborhood group.
-- `ssng`: The bitmask for the second neighborhood group.
-- `u`: The bitmask for the first neighborhood group.
+        # Direct match with source index
+        if node_to == from
+            result |= UInt8(1) << (posto - 1)
+            continue
+        end
 
-# Returns
-- `Bool`: `true` if the neighborhood groups are compatible, `false` otherwise.
-"""
+        # Early exit if we've processed all source nodes
+        node_to > from && ufrom == 0 && break
+
+        # Find matching node in source group
+        while posfrom ≤ MAX_NG_SIZE && ufrom ≠ 0
+            node_from = ngfrom[posfrom, from]
+
+            if node_from == node_to
+                if ufrom & 1 == 1
+                    result |= UInt8(1) << (posto - 1)
+                end
+                ufrom >>= 1
+                posfrom += 1
+                break
+            elseif node_from < node_to
+                ufrom >>= 1
+                posfrom += 1
+            else
+                break
+            end
+        end
+    end
+
+    return result
+end
+
+# function ngintersect(ngfrom, ufrom::UInt8, from, ngto, to)::UInt8
+#     result::UInt8 = 0
+#     posfrom = 1
+
+#     @fastmath @inbounds for posto in 1:MAX_NG_SIZE
+#         node = ngto[posto, to]
+
+#         if node == from
+#             result |= UInt8(1) << (posto - 1)
+#         elseif node > from && ufrom == 0
+#             break
+#         else
+#             while posfrom <= MAX_NG_SIZE && ufrom != 0 && ngfrom[posfrom, from] < node
+#                 ufrom >>= 1
+#                 posfrom += 1
+#             end
+
+#             if posfrom <= MAX_NG_SIZE && ufrom != 0 && ngfrom[posfrom, from] == node
+#                 result |= UInt8(1) << (posto - 1)
+#             end
+#         end
+#     end
+
+#     return result
+# end
+
 function compatible(ng, i, ssng, u)
-    @inbounds for idx in 1:7
+    @inbounds for idx in 1:MAX_NG_SIZE
         if ssng == 0
             return true
         elseif ssng & 1 == 1 && in(ng[idx, i], u)
@@ -88,38 +120,39 @@ function compatible(ng, i, ssng, u)
     return true
 end
 
-"""
-    ngsubsetequal(ngone, uone::UInt8, ngtwo, utwo::UInt8, node)::Bool
+function ngsubsetequal(ngone::Matrix{Int}, uone::UInt8, ngtwo::Matrix{Int}, utwo::UInt8, node::Int)::Bool
+    # Early exit if no elements to check
+    uone == 0 && return true
+    utwo == 0 && return false
 
-Determine if the set represented by `ngone` and `uone` is a subset of the set represented by `ngtwo` and `utwo` for a given `node`.
-
-# Arguments
-- `ngone`: The first set of nodes.
-- `uone::UInt8`: The bitmask for the first set of nodes.
-- `ngtwo`: The second set of nodes.
-- `utwo::UInt8`: The bitmask for the second set of nodes.
-- `node`: The node to compare.
-
-# Returns
-- `Bool`: `true` if `ngone` is a subset of `ngtwo`, `false` otherwise.
-"""
-function ngsubsetequal(ngone, uone::UInt8, ngtwo, utwo::UInt8, node)
     posone = 1
     postwo = 1
 
-    @inbounds while posone <= 7 && uone != 0
+    @fastmath @inbounds while posone <= MAX_NG_SIZE && uone != 0
+        # Skip inactive elements in first set
+        if uone & 1 == 0
+            posone += 1
+            uone >>= 1
+            continue
+        end
+
         nodeone = ngone[posone, node]
 
-        if uone & 1 == 1
-            while postwo <= 7 && utwo != 0 && ngtwo[postwo, node] < nodeone
-                utwo >>= 1
-                postwo += 1
-            end
+        # Advance through second set until we find matching or greater element
+        while postwo <= MAX_NG_SIZE && utwo != 0 && ngtwo[postwo, node] < nodeone
+            utwo >>= 1
+            postwo += 1
+        end
 
-            nodetwo = ngtwo[postwo, node]
-            if postwo > 7 || utwo == 0 || (nodeone == nodetwo && utwo & 1 == 0)
-                return false
-            end
+        # Check failure conditions:
+        # 1. Ran out of elements in second set
+        # 2. Found matching element but it's not active
+        # 3. Current element in second set is greater (element not found)
+        if postwo > MAX_NG_SIZE ||
+           utwo == 0 ||
+           ngtwo[postwo, node] > nodeone ||
+           (nodeone == ngtwo[postwo, node] && utwo & 1 == 0)
+            return false
         end
 
         posone += 1

@@ -11,6 +11,7 @@ Gurobi = "2e9cd046-0924-5485-92f1-d5272153d98b"
 JuMP = "4076af6c-e467-56ae-b986-b466b2749572"
 OhMyREPL = "5fb14364-9ced-5910-84b2-373655c76a03"
 Revise = "295af30f-e4ad-537b-8983-00126c2a3abe"
+Statistics = "10745b16-79ce-11e8-11f9-7d13ad32a3b2"
 
 [compat]
 CSV = "0.10.15"
@@ -20,3 +21,4 @@ Gurobi = "1.6.0"
 JuMP = "1.23.5"
 OhMyREPL = "0.5.28"
 Revise = "3.6.4"
+Statistics = "1.11.1"

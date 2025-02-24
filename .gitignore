@@ -1,3 +1,4 @@
 *.lp
 Manifest.toml
 *.csv
+.aider*

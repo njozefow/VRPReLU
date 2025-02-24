@@ -12,62 +12,66 @@ function ngdpinit(sp)
     return lid, buckets
 end
 
-function ngdprun(sp, buckets, lid, dom)
-    for d in 1:vehicle_capacity(sp)
-        for i in 2:n_nodes(sp)
-            if isempty(buckets[i, d])
-                continue
-            end
+function check_dominance(sp, buckets, j, newlabel, dom)
+    for q in 1:newlabel.load-1
+        @inbounds bucket = buckets[j, q]
+        if !isempty(bucket) && dominate(sp, bucket, newlabel, dom)
+            return false
+        end
+    end
+    return true
+end
 
-            for l in buckets[i, d]
+function clean_higher_buckets!(sp, buckets, j, newlabel, max_capacity)
+    for q in newlabel.load+1:max_capacity
+        @inbounds bucket = buckets[j, q]
+        if !isempty(bucket)
+            clean(sp, bucket, newlabel, dom)
+        end
+    end
+end
+
+function ngdprun(sp, buckets::Array{Vector{Label},2}, lid::Int, dom)
+    capacity = vehicle_capacity(sp)
+    nodes = n_nodes(sp)
+
+    for d in 1:capacity
+        for i in 2:nodes
+            @inbounds bucket = buckets[i, d]
+            isempty(bucket) && continue
+
+            for label in bucket
                 for (j, dij, pij, tij) in adj(sp, i)
-                    if !allowed(l, j, dij, tij, sp)
-                        continue
-                    end
+                    # Check if extension is allowed
+                    allowed(label, j, dij, tij, sp) || continue
 
-                    newlabel = Label(sp, l, j, dij, pij, tij, lid)
+                    # Create new label
+                    newlabel = Label(sp, label, j, dij, pij, tij, lid)
 
-                    ok = true
+                    # Check dominance and add label if not dominated
+                    if check_dominance(sp, buckets, j, newlabel, dom) &&
+                       @inbounds push(sp, buckets[j, newlabel.load], newlabel, dom)
 
-                    for q in 1:newlabel.load-1
-                        @inbounds bucket = buckets[j, q]
-
-                        if isempty(bucket)
-                            continue
-                        end
-
-                        if dominate(bucket, newlabel, dom)
-                            ok = false
-                            break
-                        end
-                    end
-
-                    @inbounds if ok && push(buckets[j, newlabel.load], newlabel, dom)
-                        for q in newlabel.load+1:vehicle_capacity(sp)
-
-                            @inbounds bucket = buckets[j, q]
-
-                            if isempty(bucket)
-                                continue
-                            end
-
-                            clean(bucket, newlabel, dom)
-                        end
-
+                        # Clean higher buckets
+                        clean_higher_buckets!(sp, buckets, j, newlabel, capacity)
                         lid += 1
                     end
                 end
             end
         end
     end
+
+    return lid
 end
 
-function search_bucket(bucket, pid)
-    for l in bucket
-        if l.id == pid
-            return l
+function find_label_by_id(bucket, parent_id)
+    # Search bucket for label with given parent id
+    @inbounds for label in bucket
+        if label.id == parent_id
+            return label
         end
     end
+    return nothing # Explicit return for clarity
 end
 
 function ngbuildroute(sp, buckets, label)
@@ -75,42 +79,41 @@ function ngbuildroute(sp, buckets, label)
     push!(route, root(sp))
     push!(route, label.node)
 
-    nodes = BitSet(label.node)
+    visited_nodes = BitSet(label.node)
+    route_cost_val = route_cost(sp, label)
 
-    # cost = label.distance + distance(sp, label.node, root(sp))
-    cost = route_cost(sp, label)
+    current_node = label.pnode
+    current_load = label.pload
+    current_label_id = label.pid
 
-    pi = label.pnode
-    pd = label.pload
-    pid = label.pid
+    while current_node != root(sp)
+        @inbounds current_bucket = buckets[current_node, current_load]
 
-    while pi != root(sp)
-        @inbounds labels = buckets[pi, pd]
+        # Find the parent label in the current bucket
+        parent_label = find_label_by_id(current_bucket, current_label_id)
+        if parent_label === nothing
+            error("Invalid route construction: parent label not found")
+        end
 
-        l = search_bucket(labels, pid)
+        push!(route, current_node)
+        push!(visited_nodes, current_node)
 
-        push!(route, pi)
-        push!(nodes, pi)
-
-        pi = l.pnode
-        pd = l.pload
-        pid = l.pid
+        # Move to parent node
+        current_node = parent_label.pnode
+        current_load = parent_label.pload
+        current_label_id = parent_label.pid
     end
 
     push!(route, root(sp))
-
     reverse!(route)
 
-    return Column(cost, route, nodes)
+    return Column(route_cost_val, route, visited_nodes)
 end
 
-function insert(routes, rc, route)
-    push!(routes, (rc, route))
-    pos = length(routes)
-    while pos > 2 && routes[pos][1] < routes[pos-1][1]
-        routes[pos], routes[pos-1] = routes[pos-1], routes[pos]
-        pos -= 1
-    end
+function insert_sorted_by_cost(routes, reduced_cost, route)
+    # Insert new route and sort by reduced cost (ascending)
+    push!(routes, (reduced_cost, route))
+    sort!(routes, by=first)
 end
 
 function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
@@ -133,9 +136,7 @@ function ngbuildroutes(sp, buckets, maxroutes, bucket, routes)
             pop!(routes)
         end
 
-        # push!(routes, (rc, route))
-        # sort!(routes, by=x -> x[1])
-        insert(routes, rc, route)
+        insert_sorted_by_cost(routes, rc, route)
     end
 end
 
@@ -157,14 +158,17 @@ function ngbuildroutes(sp, buckets, maxroutes)
     return routes
 end
 
-function ngdynprog(sp, full)
+function ngdynprog(sp, use_exact_dominance::Bool)
+    # Initialize labels and buckets
     lid, buckets = ngdpinit(sp)
 
-    dom = full ? dominates_full : dominates_ressources
+    # Select dominance function based on the solving mode
+    dominance_function = use_exact_dominance ? dominates_full : dominates_ressources
 
-    ngdprun(sp, buckets, lid, dom)
+    # Run the main dynamic programming algorithm
+    final_lid = ngdprun(sp, buckets, lid, dominance_function)
 
-    return ngbuildroutes(sp, buckets, full ? max_exact_routes : max_heuristic_routes)
-    # return ngbuildroutes(sp, buckets)
-    # return ngbuildroutes(sp, buckets, nrc_routes)
+    # Build routes with appropriate limit based on solving mode
+    max_routes = use_exact_dominance ? max_exact_routes : max_heuristic_routes
+    return ngbuildroutes(sp, buckets, max_routes)
 end

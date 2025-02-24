@@ -297,4 +297,3 @@ function unset_branching(master::Master, idx::Set{Int}, ngidx::Set{Int})
     unset_branching(master.x, idx)
     unset_branching(master.ngx, ngidx)
 end
-

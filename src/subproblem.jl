@@ -2,7 +2,8 @@ mutable struct Subproblem
     instance::Instance
     pi::Vector{Float64}
     picost::Matrix{Float64}
-    ng::Matrix{Int}
+    softng::Matrix{Int}
+    hardng::Matrix{Int}
     adj::Vector{Vector{Tuple{Int,Int,Float64,Int}}} # node, distance, reduced_cost, travel_time
     gap::Float64
     tbounds::Array{Float64,3}
@@ -15,7 +16,8 @@ function Subproblem(instance::Instance)
 
     picost = zeros(Float64, n, n)
 
-    ng = zeros(Int, delta - 1, n)
+    softng = zeros(Int, delta - 1, n)
+    hardng = zeros(Int, delta - 1, n)
 
     adj = Vector{Vector{Tuple{Int,Int,Int}}}()
     for _ in 1:n
@@ -24,7 +26,7 @@ function Subproblem(instance::Instance)
 
     tbounds = [Inf for _ in 1:128, _ in 1:n, _ in 1:tmax(instance)]
 
-    return Subproblem(instance, pi, picost, ng, adj, 0.0, tbounds)
+    return Subproblem(instance, pi, picost, softng, hardng, adj, 0.0, tbounds)
 end
 
 @inline n_nodes(sp::Subproblem) = n_nodes(sp.instance)
@@ -77,24 +79,44 @@ function set(sp::Subproblem, constraints::Vector{ConstraintRef})
     end
 end
 
-# TODO: question comment on fait pour les ng ? distance, reduced cost, etc
-function build_ng(sp::Subproblem)
+function build_hardng(sp::Subproblem)
     n = n_nodes(sp)
 
     for i in 2:n
-        # TODO: modifier ici
         adj = [j for j in 2:n if j != i]
 
-        # TODO: une combinaison des deux ? mais cela n'a un sens que si on dépasse la soft bound
         sort!(adj, by=x -> adjacent(sp, i, x) ? distance(sp, i, x) + sp.picost[i, x] : Inf)
-        # sort!(adj, by=x -> adjacent(sp, i, x) ? sp.picost[i, x] : Inf)
 
         for j in 1:delta-1
-            @inbounds sp.ng[j, i] = adj[j]
+            @inbounds sp.hardng[j, i] = adj[j]
         end
 
-        sort!(view(sp.ng, :, i))
+        sort!(view(sp.hardng, :, i))
     end
+end
+
+function build_softng(sp::Subproblem)
+    n = n_nodes(sp)
+
+    for i in 2:n
+        adj = [j for j in 2:n if j != i]
+
+        sort!(adj, by=x -> adjacent(sp, i, x) ? sp.picost[i, x] : Inf)
+
+        for j in 1:delta-1
+            @inbounds sp.softng[j, i] = adj[j]
+        end
+
+        sort!(view(sp.softng, :, i))
+    end
+end
+
+function build_ng(sp::Subproblem)
+    build_hardng(sp)
+    build_softng(sp)
+
+    # copy!(sp.softng, sp.hardng)
+    # copy!(sp.hardng, sp.softng)
 end
 
 function build_adj(sp::Subproblem)
