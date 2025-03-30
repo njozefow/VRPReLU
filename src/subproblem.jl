@@ -119,6 +119,41 @@ function build_ng(sp::Subproblem)
     # copy!(sp.hardng, sp.softng)
 end
 
+function build_paretong(sp::Subproblem)
+    n = n_nodes(sp)
+
+    for i in 2:n
+        println(i)
+        println(view(sp.picost, i, :))
+
+        archive = NGArchive()
+
+        for j in 2:n
+            if i == j || sp.picost[i, j] == Inf
+                continue
+            end
+
+            add_element!(archive, j, distance(sp, i, j), adjacent(sp, i, j) ? sp.picost[i, j] : Float64(typemax(Int64)))
+        end
+
+        println("start selection")
+
+        println("archive size: ", size(archive.elements))
+
+        selected = select_representative_elements(archive, delta - 1)
+
+        println("end selection")
+
+        for j in 1:delta-1
+            @inbounds sp.hardng[j, i] = selected[j].id
+        end
+
+        sort!(view(sp.hardng, :, i))
+    end
+
+    copy!(sp.softng, sp.hardng)
+end
+
 function build_adj(sp::Subproblem)
     n = n_nodes(sp)
 
