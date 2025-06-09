@@ -57,8 +57,13 @@ Returns `true` if `b` dominates `a`, `false` otherwise.
 """
 function is_dominated_by(a::NGArchiveElement, b::NGArchiveElement)::Bool
     # b dominates a if b is better or equal in all objectives and strictly better in at least one
-    return (b.distance <= a.distance && b.picost < a.picost) ||
-           (b.distance < a.distance && b.picost <= a.picost)
+    return (b.distance <= a.distance && b.picost < a.picost - myeps) ||
+           (b.distance < a.distance && b.picost <= a.picost + myeps)
+end
+
+function dominates(a::NGArchiveElement, b::NGArchiveElement)::Bool
+    return (a.distance <= b.distance && a.picost < b.picost - myeps) ||
+           (a.distance < b.distance && a.picost <= b.picost + myeps)
 end
 
 """
@@ -91,29 +96,19 @@ function get_nondominated_elements(elements::Vector{NGArchiveElement})::Vector{N
     nondominated = Vector{NGArchiveElement}()
 
     # Add the first element (lowest distance)
-    push!(nondominated, sorted_elements[1])
+    @inbounds push!(nondominated, sorted_elements[1])
+    @inbounds last_inserted = nondominated[end]
 
-    # Current best picost (initialize with first element)
-    best_picost = sorted_elements[1].picost
-
-    # Process remaining elements
     for i in 2:length(sorted_elements)
-        current = sorted_elements[i]
+        @inbounds current = sorted_elements[i]
 
-        # Special case: If current element has same distance as previous element
-        if current.distance == sorted_elements[i-1].distance
-            # Only keep if it has strictly lower picost
-            if current.picost < best_picost
-                push!(nondominated, current)
-                best_picost = current.picost
-            end
-            # Normal case: Element has greater distance than previous
-        else
-            # Only keep if it has strictly lower picost than best seen so far
-            if current.picost < best_picost
-                push!(nondominated, current)
-                best_picost = current.picost
-            end
+        if current.distance == last_inserted.distance && current.picost < last_inserted.picost - myeps
+            @inbounds nondominated[end] = current
+            last_inserted = current
+            best_picost = current.picost
+        elseif current.picost < last_inserted.picost - myeps
+            push!(nondominated, current)
+            last_inserted = current
         end
     end
 
