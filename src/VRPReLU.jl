@@ -8,7 +8,7 @@ using Statistics
 # using DataStructures
 using CSV
 
-import Base: isempty, copy, length
+import Base: isempty, copy, length, push!
 
 const GRB_ENV_REF = Ref{Gurobi.Env}()
 
@@ -27,7 +27,8 @@ include("param.jl")
 include("instance.jl")
 include("column.jl")
 include("master.jl")
-include("ngarchive.jl")
+include("archive.jl")
+# include("ngarchive.jl")
 include("subproblem.jl")
 include("ngset.jl")
 include("label.jl")
