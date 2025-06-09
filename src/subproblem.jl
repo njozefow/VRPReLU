@@ -111,6 +111,7 @@ function build_softng(sp::Subproblem)
     end
 end
 
+# TODO: Il faut peut être changer ici
 function build_ng(sp::Subproblem)
     build_hardng(sp)
     build_softng(sp)
