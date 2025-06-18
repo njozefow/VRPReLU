@@ -283,7 +283,7 @@ function solve(path::String, type::String, ratio=0.75)
         end
     end
 
-    # println(df)
+    println(df)
 
     println(describe(df))
 

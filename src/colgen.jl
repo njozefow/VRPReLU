@@ -53,10 +53,8 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
         set(sp, master.constraints)
         set_branching(sp, branchments)
         build_adj(sp)
-        build_paretong(sp)
-        # build_ng(sp)
-        # build_softng(sp)
-        # build_hardng(sp)
+        # build_paretong(sp)
+        build_ng(sp)
 
         # save previous pi
         copy!(pibar, sp.pi)

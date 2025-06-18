@@ -114,9 +114,9 @@ end
 # TODO: Il faut peut être changer ici
 function build_ng(sp::Subproblem)
     build_hardng(sp)
-    build_softng(sp)
+    # build_softng(sp)
 
-    # copy!(sp.softng, sp.hardng)
+    copy!(sp.softng, sp.hardng)
     # copy!(sp.hardng, sp.softng)
 end
 
@@ -126,45 +126,28 @@ function build_paretong(sp::Subproblem)
     archive = Archive()
 
     for i in 2:n
-        for j in 2:n
-            (i == j || picost(sp, i, j) == Inf) && continue
-            add_to_archive!(archive, j, distance(sp, i, j), picost(sp, i, j))
-        end
+        @inbounds adj = sp.adj[i]
+        @inbounds sp.hardng[:, i] .= i
 
-
-    end
-end
-
-function build_paretong(sp::Subproblem)
-    n = n_nodes(sp)
-
-    for i in 2:n
-        println(i)
-        println(view(sp.picost, i, :))
-
-        archive = NGArchive()
-
-        for j in 2:n
-            if i == j || sp.picost[i, j] == Inf
-                continue
+        if length(adj) <= delta - 1
+            for j in eachindex(adj)
+                @inbounds sp.hardng[j, i] = adj[j][1]
             end
+            for j in 1:delta-1-length(adj)
+                @inbounds sp.hardng[j+length(adj), i] = 0
+            end
+        else
+            archive = Archive()
+            for (j, dij, picost, °) in adj
+                @inbounds push!(archive.elements, (j, dij, picost))
+            end
+            # archive.elements = [(j, dij, picost) for (j, dij, picost, _) in adj]
 
-            add_element!(archive, j, distance(sp, i, j), adjacent(sp, i, j) ? sp.picost[i, j] : Float64(typemax(Int64)))
+            selected = select_n(archive, delta - 1)
+            sort!(selected)
+
+            sp.hardng[:, i] .= selected
         end
-
-        println("start selection")
-
-        println("archive size: ", size(archive.elements))
-
-        selected = select_representative_elements(archive, delta - 1)
-
-        println("end selection")
-
-        for j in 1:delta-1
-            @inbounds sp.hardng[j, i] = selected[j].id
-        end
-
-        sort!(view(sp.hardng, :, i))
     end
 
     copy!(sp.softng, sp.hardng)
@@ -178,10 +161,7 @@ function build_adj(sp::Subproblem)
         empty!(adj)
 
         for j in 2:n
-            @inbounds if sp.picost[i, j] == Inf
-                continue
-            end
-
+            @inbounds sp.picost[i, j] == Inf && continue
             @inbounds push!(adj, (j, distance(sp, i, j), sp.picost[i, j], traveltime(sp, i, j)))
         end
     end
