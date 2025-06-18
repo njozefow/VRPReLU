@@ -1,26 +1,26 @@
 struct Archive
-    elements::Vector{Tuple{Int,Float64}}
+    elements::Vector{Tuple{Int,Int,Float64}}
 
-    Archive() = new(Vector{Tuple{Int,Float64}}())
+    Archive() = new(Vector{Tuple{Int,Int,Float64}}())
 end
 
-@inline add_to_archive!(archive::Archive, objone::Int, objtwo::Float64) = Base.push!(archive.elements, (objone, objtwo))
+@inline add_to_archive!(archive::Archive, id::Int, objone::Int, objtwo::Float64) = Base.push!(archive.elements, (id, objone, objtwo))
 
 const FLOAT_TOL = 1e-6
 
 @inline approx_leq(a::Float64, b::Float64) = a <= b + FLOAT_TOL
 @inline approx_lt(a::Float64, b::Float64) = a < b - FLOAT_TOL
 
-@inline function dominates(a::Tuple{Int,Float64}, b::Tuple{Int,Float64})
-    @inbounds a1_leq_b1 = a[1] <= b[1]
-    @inbounds a1_lt_b1 = a[1] < b[1]
-    @inbounds a2_lt_b2 = approx_lt(a[2], b[2])
-    @inbounds a2_leq_b2 = approx_leq(a[2], b[2])
+@inline function dominates(a::Tuple{Int,Int,Float64}, b::Tuple{Int,Int,Float64})
+    @inbounds a1_leq_b1 = a[2] <= b[2]
+    @inbounds a1_lt_b1 = a[2] < b[2]
+    @inbounds a2_lt_b2 = approx_lt(a[3], b[3])
+    @inbounds a2_leq_b2 = approx_leq(a[3], b[3])
 
     return (a1_leq_b1 && a2_lt_b2) || (a1_lt_b1 && a2_leq_b2)
 end
 
-function next_non_weakly_dominated(elements::Vector{Tuple{Int,Float64}}, indices::Vector{Int}, i::Int)
+function next_non_weakly_dominated(elements::Vector{Tuple{Int,Int,Float64}}, indices::Vector{Int}, i::Int)
     # Ensure we have a valid starting position
     i >= length(indices) && return i
 
@@ -29,8 +29,8 @@ function next_non_weakly_dominated(elements::Vector{Tuple{Int,Float64}}, indices
         @inbounds elem_i = elements[indices[i]]
         @inbounds elem_i_next = elements[indices[i+1]]
 
-        if elem_i[1] == elem_i_next[1]
-            if abs(elem_i[2] - elem_i_next[2]) < FLOAT_TOL
+        if elem_i[2] == elem_i_next[2]
+            if abs(elem_i[3] - elem_i_next[3]) < FLOAT_TOL
                 deleteat!(indices, i + 1)
                 if i >= length(indices)
                     break
@@ -46,7 +46,7 @@ function next_non_weakly_dominated(elements::Vector{Tuple{Int,Float64}}, indices
     return i
 end
 
-function extract_non_dominated(elements::Vector{Tuple{Int,Float64}}, indices::Vector{Int})
+function extract_non_dominated(elements::Vector{Tuple{Int,Int,Float64}}, indices::Vector{Int})
     front = Int[]
 
     i = 1 # Start from the first value in indice
@@ -61,7 +61,7 @@ function extract_non_dominated(elements::Vector{Tuple{Int,Float64}}, indices::Ve
 
         @inbounds idx = indices[i]
 
-        @inbounds current_picost = elements[idx][2]
+        @inbounds current_picost = elements[idx][3]
 
         if approx_lt(current_picost, best_picost)
             @inbounds push!(front, idx)
@@ -79,7 +79,7 @@ function rank(archive::Archive)
     n = length(archive.elements)
 
     indices = collect(1:n)
-    sort!(indices, by=i -> (archive.elements[i][1], archive.elements[i][2]))
+    sort!(indices, by=i -> (archive.elements[i][2], archive.elements[i][3]))
 
     fronts = Vector{Vector{Int}}()
 
@@ -91,5 +91,34 @@ function rank(archive::Archive)
     return fronts
 end
 
+# Select n diversified elements from the archive considering the non-dominated elements in the front
+function select_n(archive::Archive, front::Vector{Int}, n::Int)
+    n >= length(front) && return front
+    length(front) == 0 && return Int[]
+
+    if n == 1
+        # Select middle element for best representativeness
+        mid_idx = (length(front) + 1) ÷ 2
+        return [front[mid_idx]]
+    elseif n == 2
+        # Select extreme points for maximum diversity
+        return [front[1], front[end]]
+    elseif n == 3
+        # Select first, middle, and last
+        mid_idx = (length(front) + 1) ÷ 2
+        return [front[1], front[mid_idx], front[end]]
+    else
+        # General case: evenly spaced selection
+        step = (length(front) - 1) / (n - 1)
+        selected = Int[]
+
+        for i in 0:(n-1)
+            idx = round(Int, 1 + i * step)
+            push!(selected, front[idx])
+        end
+
+        return selected
+    end
+end
 
 
