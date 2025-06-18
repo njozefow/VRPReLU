@@ -123,6 +123,21 @@ end
 function build_paretong(sp::Subproblem)
     n = n_nodes(sp)
 
+    archive = Archive()
+
+    for i in 2:n
+        for j in 2:n
+            (i == j || picost(sp, i, j) == Inf) && continue
+            add_to_archive!(archive, j, distance(sp, i, j), picost(sp, i, j))
+        end
+
+
+    end
+end
+
+function build_paretong(sp::Subproblem)
+    n = n_nodes(sp)
+
     for i in 2:n
         println(i)
         println(view(sp.picost, i, :))

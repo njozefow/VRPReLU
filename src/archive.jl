@@ -92,7 +92,7 @@ function rank(archive::Archive)
 end
 
 # Select n diversified elements from the archive considering the non-dominated elements in the front
-function select_n(archive::Archive, front::Vector{Int}, n::Int)
+function select_n(front::Vector{Int}, n::Int)
     n >= length(front) && return front
     length(front) == 0 && return Int[]
 
@@ -121,4 +121,24 @@ function select_n(archive::Archive, front::Vector{Int}, n::Int)
     end
 end
 
+function select_n(archive::Archive, n::Int)
+    fronts = rank(archive)
 
+    selected = Int[]
+
+    current_rank = 1
+
+    while current_rank <= length(fronts) && n > 0
+        @inbounds front = fronts[current_rank]
+        front = n >= length(front) ? front : select_n(front, n)
+
+        for idx in front
+            @inbounds push!(selected, archive.elements[idx][1])
+        end
+
+        n -= length(front)
+        current_rank += 1
+    end
+
+    return selected
+end
