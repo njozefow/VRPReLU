@@ -47,46 +47,26 @@ function next_non_weakly_dominated(elements::Vector{Tuple{Int,Float64}}, indices
 end
 
 function extract_non_dominated(elements::Vector{Tuple{Int,Float64}}, indices::Vector{Int})
+    front = Int[]
+
     i = 1 # Start from the first value in indice
     best_picost = Inf
 
     # i is at the first element to consider
     while i <= length(indices)
         # pass weakly dominated elements and removed same elements
+        # in worst case i is equal to length(indices)
         i = next_non_weakly_dominated(elements, indices, i)
-        @inbounds current_picost = elements[indices[i]][2]
-    end
-end
+        i > length(indices) && break  # If i exceeds indices length, exit loop
 
-function extract_non_dominated(elements::Vector{Tuple{Int,Float64}}, indices::Vector{Int})
-    front = Int[]
+        @inbounds idx = indices[i]
 
-    if isempty(indices)
-        return front
-    end
+        @inbounds current_picost = elements[idx][2]
 
-    # Start from the beginning and find first non-dominated
-    i = 1
-    i = next_non_dominated(elements, indices, i)
-
-    @inbounds best_picost = elements[indices[i]][2]
-    push!(front, indices[i])
-    deleteat!(indices, i)
-
-    # Continue from the same position (since we deleted an element, next element shifted down)
-    while i <= length(indices)
-        i = next_non_dominated(elements, indices, i)
-        if i > length(indices)
-            break
-        end
-
-        @inbounds current_picost = elements[indices[i]][2]
-
-        if current_picost < best_picost - FLOAT_TOL
+        if approx_lt(current_picost, best_picost)
+            @inbounds push!(front, idx)
             best_picost = current_picost
-            push!(front, indices[i])
             deleteat!(indices, i)
-            # Don't increment i since we deleted an element - next element moved to position i
         else
             i += 1  # Move to next element since this one wasn't added
         end
@@ -105,7 +85,7 @@ function rank(archive::Archive)
 
     while !isempty(indices)
         front = extract_non_dominated(archive.elements, indices)
-        push!(fronts, front)
+        !isempty(front) && push!(fronts, front)
     end
 
     return fronts
