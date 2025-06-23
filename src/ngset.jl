@@ -120,44 +120,44 @@ function compatible(ng, i, ssng, u)
     return true
 end
 
-function ngsubsetequal(ngone::Matrix{Int}, uone::UInt8, ngtwo::Matrix{Int}, utwo::UInt8, node::Int)::Bool
-    # Early exit if no elements to check
-    uone == 0 && return true
-    utwo == 0 && return false
+# function ngsubsetequal(ngone::Matrix{Int}, uone::UInt8, ngtwo::Matrix{Int}, utwo::UInt8, node::Int)::Bool
+#     # Early exit if no elements to check
+#     uone == 0 && return true
+#     utwo == 0 && return false
 
-    posone = 1
-    postwo = 1
+#     posone = 1
+#     postwo = 1
 
-    @fastmath @inbounds while posone <= MAX_NG_SIZE && uone != 0
-        # Skip inactive elements in first set
-        if uone & 1 == 0
-            posone += 1
-            uone >>= 1
-            continue
-        end
+#     @fastmath @inbounds while posone <= MAX_NG_SIZE && uone != 0
+#         # Skip inactive elements in first set
+#         if uone & 1 == 0
+#             posone += 1
+#             uone >>= 1
+#             continue
+#         end
 
-        nodeone = ngone[posone, node]
+#         nodeone = ngone[posone, node]
 
-        # Advance through second set until we find matching or greater element
-        while postwo <= MAX_NG_SIZE && utwo != 0 && ngtwo[postwo, node] < nodeone
-            utwo >>= 1
-            postwo += 1
-        end
+#         # Advance through second set until we find matching or greater element
+#         while postwo <= MAX_NG_SIZE && utwo != 0 && ngtwo[postwo, node] < nodeone
+#             utwo >>= 1
+#             postwo += 1
+#         end
 
-        # Check failure conditions:
-        # 1. Ran out of elements in second set
-        # 2. Found matching element but it's not active
-        # 3. Current element in second set is greater (element not found)
-        if postwo > MAX_NG_SIZE ||
-           utwo == 0 ||
-           ngtwo[postwo, node] > nodeone ||
-           (nodeone == ngtwo[postwo, node] && utwo & 1 == 0)
-            return false
-        end
+#         # Check failure conditions:
+#         # 1. Ran out of elements in second set
+#         # 2. Found matching element but it's not active
+#         # 3. Current element in second set is greater (element not found)
+#         if postwo > MAX_NG_SIZE ||
+#            utwo == 0 ||
+#            ngtwo[postwo, node] > nodeone ||
+#            (nodeone == ngtwo[postwo, node] && utwo & 1 == 0)
+#             return false
+#         end
 
-        posone += 1
-        uone >>= 1
-    end
+#         posone += 1
+#         uone >>= 1
+#     end
 
-    return true
-end
+#     return true
+# end

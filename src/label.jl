@@ -18,23 +18,25 @@
 end
 
 # Optimized helper functions
-@inline is_within_soft_limit(label) = label.distance <= 0
+# @inline is_within_soft_limit(label) = label.distance <= 0
 
-@inline same_distance_category(lone, ltwo) = (lone.distance <= 0) == (ltwo.distance <= 0)
+# @inline same_distance_category(lone, ltwo) = (lone.distance <= 0) == (ltwo.distance <= 0)
 
 @inline dominates_by_resources(lone, ltwo) = !(lone.rtime > ltwo.rtime || lone.distance > ltwo.distance + myeps)
 
 @inline function update_label_ng(sp, lfrom, lto, j)
-    within_soft_from = is_within_soft_limit(lfrom)
-    within_soft_to = is_within_soft_limit(lto)
+    lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
 
-    if within_soft_from && !within_soft_to
-        lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, sp.hardng, j)
-    elseif !within_soft_from
-        lto.u = ngintersect(sp.hardng, lfrom.node, lfrom.u, j)
-    elseif within_soft_to
-        lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, j)
-    end
+    # within_soft_from = is_within_soft_limit(lfrom)
+    # within_soft_to = is_within_soft_limit(lto)
+
+    # if within_soft_from && !within_soft_to
+    #     lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, sp.hardng, j)
+    # elseif !within_soft_from
+    #     lto.u = ngintersect(sp.hardng, lfrom.node, lfrom.u, j)
+    # elseif within_soft_to
+    #     lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, j)
+    # end
 end
 
 @inline function can_extend_to_node(sp, label, j, dij, tij)
@@ -51,8 +53,8 @@ end
         return false
     end
 
-    ng = is_within_soft_limit(label) ? sp.softng : sp.hardng
-    return !ngin(ng, label.node, label.u, j)
+    # ng = is_within_soft_limit(label) ? sp.softng : sp.hardng
+    return !ngin(sp.ng, label.node, label.u, j)
 end
 
 # Base constructors
@@ -107,7 +109,8 @@ function Label(sp, lfrom::Label, j, dij, pij, tij, lid)
     lto.load = lfrom.load + request_quantity(sp, j)
 
     # Update ng-routes
-    update_label_ng(sp, lfrom, lto, j)
+    lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
+    # update_label_ng(sp, lfrom, lto, j)
 
     return lto
 end
@@ -139,11 +142,11 @@ function dominates_full(sp, lone, ltwo)
         return false
     end
 
-    if same_distance_category(lone, ltwo)
-        return (lone.u & ltwo.u == lone.u)
-    end
+    # if same_distance_category(lone, ltwo)
+    return lone.u & ltwo.u == lone.u
+    # end
 
-    return ngsubsetequal(sp.softng, lone.u, sp.hardng, ltwo.u, lone.node)
+    # return ngsubsetequal(sp.softng, lone.u, sp.hardng, ltwo.u, lone.node)
 end
 
 @inline dominates_ressources(sp, lone, ltwo) = dominates_by_resources(lone, ltwo)

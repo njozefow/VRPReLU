@@ -2,11 +2,13 @@ mutable struct Subproblem
     instance::Instance
     pi::Vector{Float64}
     picost::Matrix{Float64}
-    softng::Matrix{Int}
-    hardng::Matrix{Int}
+    ng::Matrix{Int}
+    # softng::Matrix{Int}
+    # hardng::Matrix{Int}
     adj::Vector{Vector{Tuple{Int,Int,Float64,Int}}} # node, distance, reduced_cost, travel_time
     gap::Float64
-    tbounds::Array{Float64,3}
+    # tbounds::Array{Float64,3}
+    pbounds::Array{Archive,3} # Pareto bounds for each ng, each node, each time
 end
 
 function Subproblem(instance::Instance)
@@ -16,17 +18,20 @@ function Subproblem(instance::Instance)
 
     picost = zeros(Float64, n, n)
 
-    softng = zeros(Int, delta - 1, n)
-    hardng = zeros(Int, delta - 1, n)
+    ng = zeros(Int, delta - 1, n)
+    # softng = zeros(Int, delta - 1, n)
+    # hardng = zeros(Int, delta - 1, n)
 
     adj = Vector{Vector{Tuple{Int,Int,Int}}}()
     for _ in 1:n
         push!(adj, Vector{Tuple{Int,Int,Int}}())
     end
 
-    tbounds = [Inf for _ in 1:128, _ in 1:n, _ in 1:tmax(instance)]
+    # tbounds = [Inf for _ in 1:128, _ in 1:n, _ in 1:tmax(instance)]
 
-    return Subproblem(instance, pi, picost, softng, hardng, adj, 0.0, tbounds)
+    pbounds = [Archive() for _ in 1:128, _ in 1:n, _ in 1:tmax(instance)]
+
+    return Subproblem(instance, pi, picost, ng, adj, 0.0, pbounds)
 end
 
 @inline n_nodes(sp::Subproblem) = n_nodes(sp.instance)
@@ -79,7 +84,8 @@ function set(sp::Subproblem, constraints::Vector{ConstraintRef})
     end
 end
 
-function build_hardng(sp::Subproblem)
+# function build_hardng(sp::Subproblem)
+function build_ng(sp::Subproblem)
     n = n_nodes(sp)
 
     for i in 2:n
@@ -88,56 +94,54 @@ function build_hardng(sp::Subproblem)
         sort!(adj, by=x -> adjacent(sp, i, x) ? distance(sp, i, x) + sp.picost[i, x] : Inf)
 
         for j in 1:delta-1
-            @inbounds sp.hardng[j, i] = adj[j]
+            @inbounds sp.ng[j, i] = adj[j]
         end
 
-        sort!(view(sp.hardng, :, i))
+        sort!(view(sp.ng, :, i))
     end
 end
 
-function build_softng(sp::Subproblem)
-    n = n_nodes(sp)
+# function build_softng(sp::Subproblem)
+#     n = n_nodes(sp)
 
-    for i in 2:n
-        adj = [j for j in 2:n if j != i]
+#     for i in 2:n
+#         adj = [j for j in 2:n if j != i]
 
-        sort!(adj, by=x -> adjacent(sp, i, x) ? sp.picost[i, x] : Inf)
+#         sort!(adj, by=x -> adjacent(sp, i, x) ? sp.picost[i, x] : Inf)
 
-        for j in 1:delta-1
-            @inbounds sp.softng[j, i] = adj[j]
-        end
+#         for j in 1:delta-1
+#             @inbounds sp.softng[j, i] = adj[j]
+#         end
 
-        sort!(view(sp.softng, :, i))
-    end
-end
+#         sort!(view(sp.softng, :, i))
+#     end
+# end
 
 # TODO: Il faut peut être changer ici
-function build_ng(sp::Subproblem)
-    build_hardng(sp)
-    # build_softng(sp)
+# function build_ng(sp::Subproblem)
+#     build_hardng(sp)
+# build_softng(sp)
 
-    copy!(sp.softng, sp.hardng)
-    # copy!(sp.hardng, sp.softng)
-end
+# copy!(sp.softng, sp.hardng)
+# copy!(sp.hardng, sp.softng)
+# end
 
 function build_paretong(sp::Subproblem)
     n = n_nodes(sp)
 
-    archive = Archive()
-
     for i in 2:n
         @inbounds adj = sp.adj[i]
-        @inbounds sp.hardng[:, i] .= i
+        @inbounds sp.ng[:, i] .= i
 
         if length(adj) <= delta - 1
             for j in eachindex(adj)
-                @inbounds sp.hardng[j, i] = adj[j][1]
+                @inbounds sp.ng[j, i] = adj[j][1]
             end
             for j in 1:delta-1-length(adj)
-                @inbounds sp.hardng[j+length(adj), i] = 0
+                @inbounds sp.ng[j+length(adj), i] = 0
             end
         else
-            archive = Archive()
+            archive = NgArchive()
             for (j, dij, picost, °) in adj
                 @inbounds push!(archive.elements, (j, dij, picost))
             end
@@ -146,11 +150,10 @@ function build_paretong(sp::Subproblem)
             selected = select_n(archive, delta - 1)
             sort!(selected)
 
-            sp.hardng[:, i] .= selected
+            # sp.ng[:, i] .= selected
+            view(sp.ng, :, i) .= selected
         end
     end
-
-    copy!(sp.softng, sp.hardng)
 end
 
 function build_adj(sp::Subproblem)
@@ -226,20 +229,20 @@ function compatible(sp, node, ng::UInt8, u::BitSet)
 end
 
 # TODO: A implementer -> retirer le typage
-function search_bound(sp, node, load, u::BitSet)
-    qbounds = sp.qbounds
-    best_bound = qbounds[1, node, load]
+# function search_bound(sp, node, load, u::BitSet)
+#     qbounds = sp.qbounds
+#     best_bound = qbounds[1, node, load]
 
-    for ng in 2:128
-        # TODO: est-ce que le sous-ensemble ng-1 intersection u est vide ?
-        if compatible(sp, node, UInt8(ng - 1), u)
-            continue
-        end
+#     for ng in 2:128
+#         # TODO: est-ce que le sous-ensemble ng-1 intersection u est vide ?
+#         if compatible(sp, node, UInt8(ng - 1), u)
+#             continue
+#         end
 
-        if qbounds[ng, node, load] < best_bound
-            best_bound = qbounds[ng, node, load]
-        end
-    end
+#         if qbounds[ng, node, load] < best_bound
+#             best_bound = qbounds[ng, node, load]
+#         end
+#     end
 
-    return best_bound
-end
+#     return best_bound
+# end

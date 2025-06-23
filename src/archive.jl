@@ -8,6 +8,9 @@ const FLOAT_TOL = 1e-6
 
 @inline approx_leq(a::Float64, b::Float64) = a <= b + FLOAT_TOL
 
+@inline empty!(archive::Archive) = empty!(archive.elements)
+@inline isempty(archive::Archive) = isempty(archive.elements)
+
 function add_point!(archive::Archive, distance::Int, picost::Float64)
     elements = archive.elements
 

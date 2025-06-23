@@ -1,217 +1,173 @@
-"""
-    NGArchiveElement
+struct NgArchive
+    elements::Vector{Tuple{Int,Int,Float64}}
 
-A structure to represent elements in the NGArchive with:
-- id::Int64: integer identifier for the element
-- distance::Int64: integer distance value
-- picost::Float64: floating point cost value
-"""
-struct NGArchiveElement
-    id::Int64
-    distance::Int64
-    picost::Float64
+    NgArchive() = new(Vector{Tuple{Int,Int,Float64}}())
+    NgArchive(n::Int) = new(Vector{Tuple{Int,Int,Float64}}(undef, n))
 end
 
-"""
-    NGArchive
+@inline add_to_archive!(archive::NgArchive, id::Int, objone::Int, objtwo::Float64) = Base.push!(archive.elements, (id, objone, objtwo))
 
-Data structure for storing and managing NGArchiveElements.
-"""
-mutable struct NGArchive
-    elements::Vector{NGArchiveElement}
+# const FLOAT_TOL = 1e-6
 
-    # Constructor for empty archive
-    NGArchive() = new(Vector{NGArchiveElement}())
+# @inline approx_leq(a::Float64, b::Float64) = a <= b + FLOAT_TOL
+@inline approx_lt(a::Float64, b::Float64) = a < b - FLOAT_TOL
+
+@inline function dominates(a::Tuple{Int,Int,Float64}, b::Tuple{Int,Int,Float64})
+    @inbounds a1_leq_b1 = a[2] <= b[2]
+    @inbounds a1_lt_b1 = a[2] < b[2]
+    @inbounds a2_lt_b2 = approx_lt(a[3], b[3])
+    @inbounds a2_leq_b2 = approx_leq(a[3], b[3])
+
+    return (a1_leq_b1 && a2_lt_b2) || (a1_lt_b1 && a2_leq_b2)
 end
 
-"""
-    add_element!(archive::NGArchive, id::Int64, distance::Int64, picost::Float64)
+function next_non_weakly_dominated(elements::Vector{Tuple{Int,Int,Float64}}, indices::Vector{Int}, i::Int)
+    # Ensure we have a valid starting position
+    i >= length(indices) && return i
 
-Add a new element to the NGArchive.
-Returns the added element.
-"""
-function add_element!(archive::NGArchive, id::Int64, distance::Int64, picost::Float64)
-    element = NGArchiveElement(id, distance, picost)
-    push!(archive.elements, element)
-    return element
-end
+    # Continue while we have a next element to compare with
+    while i < length(indices)  # This ensures indices[i+1] exists
+        @inbounds elem_i = elements[indices[i]]
+        @inbounds elem_i_next = elements[indices[i+1]]
 
-"""
-    add_element!(archive::NGArchive, element::NGArchiveElement)
-
-Add an existing NGArchiveElement to the NGArchive.
-Returns the added element.
-"""
-function add_element!(archive::NGArchive, element::NGArchiveElement)
-    push!(archive.elements, element)
-    return element
-end
-
-"""
-    is_dominated_by(a::NGArchiveElement, b::NGArchiveElement)
-
-Check if element `a` is dominated by element `b` in a minimization context.
-Both distance and picost are to be minimized.
-
-Returns `true` if `b` dominates `a`, `false` otherwise.
-"""
-function is_dominated_by(a::NGArchiveElement, b::NGArchiveElement)::Bool
-    # b dominates a if b is better or equal in all objectives and strictly better in at least one
-    return (b.distance <= a.distance && b.picost < a.picost - myeps) ||
-           (b.distance < a.distance && b.picost <= a.picost + myeps)
-end
-
-function dominates(a::NGArchiveElement, b::NGArchiveElement)::Bool
-    return (a.distance <= b.distance && a.picost < b.picost - myeps) ||
-           (a.distance < b.distance && a.picost <= b.picost + myeps)
-end
-
-"""
-    get_nondominated_elements(elements::Vector{NGArchiveElement})
-
-Standalone utility to find all non-dominated elements using an efficient sweep-line algorithm.
-
-!!! note
-    This function is now optimized for O(n log n) performance but is no longer used
-    by the main `pareto_rank` function. It's kept as a utility for direct use cases
-    requiring only the first Pareto front.
-
-# Algorithm
-1. Sort elements by distance (ascending)
-2. Process elements in order, maintaining the lowest picost seen so far
-3. An element is non-dominated if its picost is lower than any previously seen element with less or equal distance
-
-Returns a vector of non-dominated elements.
-"""
-function get_nondominated_elements(elements::Vector{NGArchiveElement})::Vector{NGArchiveElement}
-    # Handle empty or singleton cases
-    if length(elements) <= 1
-        return copy(elements)
-    end
-
-    # Sort elements by distance (ascending)
-    sorted_elements = sort(elements, by=e -> e.distance)
-
-    # Result vector for non-dominated elements
-    nondominated = Vector{NGArchiveElement}()
-
-    # Add the first element (lowest distance)
-    @inbounds push!(nondominated, sorted_elements[1])
-    @inbounds last_inserted = nondominated[end]
-
-    for i in 2:length(sorted_elements)
-        @inbounds current = sorted_elements[i]
-
-        if current.distance == last_inserted.distance && current.picost < last_inserted.picost - myeps
-            @inbounds nondominated[end] = current
-            last_inserted = current
-            best_picost = current.picost
-        elseif current.picost < last_inserted.picost - myeps
-            push!(nondominated, current)
-            last_inserted = current
+        if elem_i[2] == elem_i_next[2]
+            if abs(elem_i[3] - elem_i_next[3]) < FLOAT_TOL
+                deleteat!(indices, i + 1)
+                if i >= length(indices)
+                    break
+                end
+            else
+                i += 1
+            end
+        else # Last element in the archive with the same objective 1 value
+            break
         end
     end
 
-    return nondominated
+    return i
 end
 
-"""
-    pareto_rank(archive::NGArchive)
+function extract_non_dominated(elements::Vector{Tuple{Int,Int,Float64}}, indices::Vector{Int})
+    front = Int[]
 
-Organize elements in the NGArchive by Pareto dominance rank using a fast algorithm.
+    i = 1 # Start from the first value in indice
+    best_picost = Inf
 
-# Details
-- Rank 1: Elements not dominated by any other element (Pareto front)
-- Rank 2: Elements not dominated when rank 1 elements are removed
-- And so on
+    # i is at the first element to consider
+    while i <= length(indices)
+        # pass weakly dominated elements and removed same elements
+        # in worst case i is equal to length(indices)
+        i = next_non_weakly_dominated(elements, indices, i)
+        i > length(indices) && break  # If i exceeds indices length, exit loop
 
-Both distance and picost are minimized in the ranking process.
+        @inbounds idx = indices[i]
 
-# Algorithm
-Uses a fast O(n log n) approach that:
-1. Sorts elements by increasing distance
-2. Processes elements in a single pass using a modified sweep line algorithm
-3. Assigns ranks efficiently without repeated computations
+        @inbounds current_picost = elements[idx][3]
 
-# Returns
-A dictionary mapping ranks (starting from 1) to vectors of elements at that rank.
-"""
-function pareto_rank(archive::NGArchive)::Dict{Int,Vector{NGArchiveElement}}
-    # Initialize result dictionary
-    ranked_elements = Dict{Int,Vector{NGArchiveElement}}()
-
-    # Handle empty archive case
-    if isempty(archive.elements)
-        return ranked_elements
-    end
-
-    # Sort elements by distance (ascending)
-    sorted_elements = sort(copy(archive.elements), by=e -> e.distance)
-
-    # Precompute ranks using the fast non-domination sorting technique
-    n = length(sorted_elements)
-    ranks = fill(1, n)  # Initialize all elements with rank 1
-
-    # Data structure to track best picosts for each rank
-    # best_picosts[r] is the lowest picost seen for rank r
-    best_picosts = Dict{Int,Float64}()
-    best_picosts[1] = Inf  # Initialize rank 1 with infinity
-
-    # First element is always rank 1
-    best_picosts[1] = sorted_elements[1].picost
-
-    # Process remaining elements
-    for i in 2:n
-        element = sorted_elements[i]
-
-        # Find the appropriate rank for this element
-        rank = 1
-        while haskey(best_picosts, rank) && element.picost >= best_picosts[rank]
-            rank += 1
+        if approx_lt(current_picost, best_picost)
+            @inbounds push!(front, idx)
+            best_picost = current_picost
+            deleteat!(indices, i)
+        else
+            i += 1  # Move to next element since this one wasn't added
         end
-
-        # Assign the rank
-        ranks[i] = rank
-
-        # Update best picost for this rank
-        best_picosts[rank] = min(get(best_picosts, rank, Inf), element.picost)
     end
 
-    # Group elements by their assigned ranks
-    for i in 1:n
-        rank = ranks[i]
-        element = sorted_elements[i]
-
-        if !haskey(ranked_elements, rank)
-            ranked_elements[rank] = Vector{NGArchiveElement}()
-        end
-        push!(ranked_elements[rank], element)
-    end
-
-    return ranked_elements
+    return front
 end
 
-"""
-    calculate_distances(points)
+function extract_non_dominated_points(archive::NgArchive)
+    indices = collect(1:length(archive.elements))
+    sort!(indices, by=i -> (archive.elements[i][2], archive.elements[i][3]))
 
-Calculate pairwise distances between points in normalized objective space.
-Returns a distance matrix where distances[i,j] is the distance between points[i] and points[j].
-Uses L2-norm (Euclidean distance).
+    front = Vector{Tuple{Int,Float64}}()
 
-Time complexity: O(n²) where n is the number of points
-"""
-function calculate_distances(points)
-    n = length(points)
-    distances = zeros(Float64, n, n)
+    i = 1
+    best_picost = Inf
 
-    for i in 1:n
-        for j in i+1:n
-            # Euclidean distance
-            d = sqrt((points[i][1] - points[j][1])^2 + (points[i][2] - points[j][2])^2)
-            distances[i, j] = d
-            distances[j, i] = d  # Symmetric
+    while i <= length(indices)
+        i = next_non_weakly_dominated(archive.elements, indices, i)
+        i > length(indices) && break  # If i exceeds indices length, exit loop
+
+        @inbounds idx = indices[i]
+        @inbounds current_picost = archive.elements[idx][3]
+
+        if approx_lt(current_picost, best_picost)
+            @inbounds push!(front, (archive.elements[idx][2], current_picost))
+            best_picost = current_picost
+            deleteat!(indices, i)
+        else
+            i += 1  # Move to next element since this one wasn't added
         end
     end
 
-    return distances
+    return front
+end
+
+function rank(archive::NgArchive)
+    n = length(archive.elements)
+
+    indices = collect(1:n)
+    sort!(indices, by=i -> (archive.elements[i][2], archive.elements[i][3]))
+
+    fronts = Vector{Vector{Int}}()
+
+    while !isempty(indices)
+        front = extract_non_dominated(archive.elements, indices)
+        !isempty(front) && push!(fronts, front)
+    end
+
+    return fronts
+end
+
+# Select n diversified elements from the archive considering the non-dominated elements in the front
+function select_n(front::Vector{Int}, n::Int)
+    n >= length(front) && return front
+    length(front) == 0 && return Int[]
+
+    if n == 1
+        # Select middle element for best representativeness
+        mid_idx = (length(front) + 1) ÷ 2
+        return [front[mid_idx]]
+    elseif n == 2
+        # Select extreme points for maximum diversity
+        return [front[1], front[end]]
+    elseif n == 3
+        # Select first, middle, and last
+        mid_idx = (length(front) + 1) ÷ 2
+        return [front[1], front[mid_idx], front[end]]
+    else
+        # General case: evenly spaced selection
+        step = (length(front) - 1) / (n - 1)
+        selected = Int[]
+
+        for i in 0:(n-1)
+            idx = round(Int, 1 + i * step)
+            push!(selected, front[idx])
+        end
+
+        return selected
+    end
+end
+
+function select_n(archive::NgArchive, n::Int)
+    fronts = rank(archive)
+
+    selected = Int[]
+
+    current_rank = 1
+
+    while current_rank <= length(fronts) && n > 0
+        @inbounds front = fronts[current_rank]
+        front = n >= length(front) ? front : select_n(front, n)
+
+        for idx in front
+            @inbounds push!(selected, archive.elements[idx][1])
+        end
+
+        n -= length(front)
+        current_rank += 1
+    end
+
+    return selected
 end
