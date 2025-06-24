@@ -66,17 +66,23 @@ function enuminit(sp)
         bound = Inf
 
         rtime = max(traveltime(sp, root(sp), i) + 1, request_twstart(sp, i))
+        distance = distance(sp, root(sp), i)
+        picost = picost(sp, root(sp), i)
 
         # TODO: voir si on peut en retirer ici
-        for ng in 1:128
-            if sp.tbounds[ng, i, tmax(sp)-rtime] < bound - myeps
-                bound = sp.tbounds[ng, i, tmax(sp)-rtime]
-            end
-        end
+        # for ng in 1:128
+        #     if sp.tbounds[ng, i, tmax(sp)-rtime] < bound - myeps
+        #         bound = sp.tbounds[ng, i, tmax(sp)-rtime]
+        #     end
+        # end
 
-        if reduced_cost(sp, root(sp), i) + bound > sp.gap - myeps
-            continue
-        end
+        bound = search_pcb(sp, UInt8(0), i, tmax(sp) - rtime, distance, picost)
+        # Il faut récupérer le coût à partir des archives de Pareto
+        # if reduced_cost(sp, root(sp), i) + bound > sp.gap - myeps
+        #     continue
+        # end
+
+        bound > sp.gap - myeps && continue
 
         label = EnumLabel(sp, i, lid)
         push!(buckets[i, request_quantity(sp, i)], label)
@@ -89,32 +95,41 @@ end
 function enumrun(param, sp, buckets, lid)
     for d in 1:vehicle_capacity(sp)
         for i in 2:n_nodes(sp)
-            if timeout(param)
-                return
-            end
+            # if timeout(param)
+            #     return
+            # end
+            timeout(param) && return
 
-            @inbounds if isempty(buckets[i, d])
-                continue
-            end
+            # @inbounds if isempty(buckets[i, d])
+            #     continue
+            # end
+            isempty(buckets[i, d]) && continue
 
             @inbounds for l in buckets[i, d]
                 # for j in 2:n_nodes(sp)
-                for (j, dij, rij, tij) in adj(sp, i)
-                    if timeout(param)
-                        return
-                    end
+                for (j, dij, pij, tij) in adj(sp, i)
+                    # if timeout(param)
+                    #     return
+                    # end
+                    timeout(param) && return
 
-                    if !allowed(l, j, tij, sp)
-                        continue
-                    end
+                    # if !allowed(l, j, tij, sp)
+                    #     continue
+                    # end
+                    !allowed(l, j, dij, tij, sp) && continue
 
-                    newlabel = EnumLabel(sp, l, j, dij, rij, tij, lid)
+                    newlabel = EnumLabel(sp, l, j, dij, pij, tij, lid)
 
-                    cb = search_tcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime)
+                    # cb = search_tcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime)
 
-                    if newlabel.reduced_cost + cb > sp.gap - myeps
-                        continue
-                    end
+                    # if newlabel.reduced_cost + cb > sp.gap - myeps
+                    #     continue
+                    # end
+
+                    # TODO: completion bound
+                    bound = search_pcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime, newlabel.distance, newlabel.picost)
+
+                    bound > sp.gap - myeps && continue
 
                     @inbounds if push(buckets[j, newlabel.load], newlabel)
                         lid += 1
@@ -158,11 +173,17 @@ end
 
 function enumbuildroutes(sp, buckets, node, load, routes)
     for label in buckets[node, load]
-        rc = label.reduced_cost + reduced_cost(sp, label.node, root(sp))
+        # TODO: il faut recalculer le cout reduit
+        # rc = label.reduced_cost + reduced_cost(sp, label.node, root(sp))
+        distance = label.distance + distance(sp, label.node, root(sp))
+        distance = max(0, distance - soft_distance_limit(sp))
+        picost = label.picost + picost(sp, label.node, root(sp))
 
-        if rc > sp.gap - myeps
-            continue
-        end
+        distance + picost > sp.gap - myeps && continue
+
+        # if rc > sp.gap - myeps
+        #     continue
+        # end
 
         route = enumbuildroute(sp, buckets, label)
 

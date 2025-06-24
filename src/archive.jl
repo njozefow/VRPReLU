@@ -55,3 +55,19 @@ function add_point!(archive::Archive, distance::Int, picost::Float64)
 
     insert!(elements, insert_pos, (distance, picost))
 end
+
+function merge!(archiveto::Archive, archivefrom::Archive)
+    isempty(archivefrom.elements) && return
+
+    elements_to_add = archivefrom.elements
+    elements = archiveto.elements
+
+    if isempty(elements)
+        archiveto.elements = copy(elements_to_add)
+        return
+    end
+
+    for (d, pc) in elements_to_add
+        add_point!(archiveto, d, pc)
+    end
+end

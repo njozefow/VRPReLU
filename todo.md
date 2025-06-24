@@ -4,3 +4,4 @@
 - defintion double ng -> cela ne marche pas
 - retester les pareto ng
 - pareto completion bound
+- dans l'enumeration on ne retoure pas la borne mais la valeur de la fonction

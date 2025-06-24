@@ -108,7 +108,10 @@ function enumerate(param, master, sp, result)
     delete_ngroutes(master)
     optimize(master, remaining_time(param))
     set(sp, master.constraints)
-    compute_tbounds(sp)
+    # compute_tbounds(sp)
+    compute_pbounds(sp)
+
+    return result
 
     upperbound = floor(lower_bound * GAP_EPS + myeps)
     sp.gap = upperbound - lower_bound
@@ -213,28 +216,14 @@ function solve(instance::Instance)
         return result
     end
 
-    # return result
-
     # branch_and_price
     # return branch_and_price(param, master, sp, lower_bound, lb_cpu_time)
 
     # just solving the master
     # return solve_master(param, master, lower_bound, lb_cpu_time)
 
-    # enumeration
-    # return enumerate(param, master, sp, lower_bound, lb_cpu_time)
-
-    # delete_ngroutes(master)
-    # switch_to_integer(master)
-    # bcmaster(sp.instance, master)
-
     # TODO: a remettre
-    # enumerate(param, master, sp, result)
-
-    # recuperation des infos pour les instances de VRPReLU
-    # lengthstar = [master.columns[i].cost for i in eachindex(master.columns) if value(master.x[i]) > 0.5]
-    # result.max_length = maximum(lengthstar)
-    # result.nb_vehicles = length(lengthstar)
+    enumerate(param, master, sp, result)
 
     return result
 end

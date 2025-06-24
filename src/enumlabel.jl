@@ -7,30 +7,34 @@ mutable struct EnumLabel
 
     node::Int
 
-    reduced_cost::Float64
+    # reduced_cost::Float64
 
     distance::Int
     rtime::Int
     load::Int
 
+    picost::Float64
     u::BitSet
 end
 
-@inline EnumLabel() = EnumLabel(-1, 0, 1, 0, -1, Inf, 0, 0, 0, BitSet())
+# @inline EnumLabel() = EnumLabel(-1, 0, 1, 0, -1, Inf, 0, 0, 0, BitSet())
+@inline EnumLabel() = EnumLabel(-1, 0, 1, 0, -1, 0, 0, 0, 0.0, BitSet())
 
 function EnumLabel(sp, node, id)
-    redcost = reduced_cost(sp, root(sp), node)
+    # redcost = reduced_cost(sp, root(sp), node)
 
     dist = distance(sp, root(sp), node)
     rtime = max(traveltime(sp, root(sp), node) + tmin(sp), request_twstart(sp, node))
     load = request_quantity(sp, node)
 
+    picost = picost(sp, root(sp), node)
+
     u = BitSet(node)
 
-    return EnumLabel(id, 0, root(sp), 0, node, redcost, dist, rtime, load, u)
+    return EnumLabel(id, 0, root(sp), 0, node, dist, rtime, load, picost, u)
 end
 
-function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
+function EnumLabel(sp, lfrom::EnumLabel, j, dij, pij, tij, lid)
     lto = EnumLabel()
 
     lto.id = lid
@@ -41,11 +45,13 @@ function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
 
     lto.node = j
 
-    lto.reduced_cost = lfrom.reduced_cost + rij
+    # lto.reduced_cost = lfrom.reduced_cost + rij
 
     lto.distance = lfrom.distance + dij
     lto.rtime = max(lfrom.rtime + tij, request_twstart(sp, j))
     lto.load = lfrom.load + request_quantity(sp, j)
+
+    lto.picost = lfrom.picost + pij
 
     lto.u = copy(lfrom.u)
     push!(lto.u, j)
@@ -53,22 +59,29 @@ function EnumLabel(sp, lfrom::EnumLabel, j, dij, rij, tij, lid)
     return lto
 end
 
-function allowed(label::EnumLabel, j, tij, sp)
-    if label.node == j
-        return false
-    end
+# TODO: il faut prendre en compte la hard limit sur la distance
+function allowed(label::EnumLabel, j, dij, tij, sp)
+    # if label.node == j
+    #     return false
+    # end
+    label.node == j && return false
 
-    if label.load + request_quantity(sp, j) > vehicle_capacity(sp)
-        return false
-    end
+    # if label.load + request_quantity(sp, j) > vehicle_capacity(sp)
+    #     return false
+    # end
+    label.load + request_quantity(sp, j) > vehicle_capacity(sp) && return false
 
-    if label.rtime + tij > request_twend(sp, j)
-        return false
-    end
+    # On ne respecte pas la hard limit sur la distance
+    # path_length(sp, label) + dij > hord_distance_limit(sp) && return false
+    path_length(sp, label) + dij + distance(sp, j, root(sp)) > hard_distance_limit(sp) && return false
 
-    if in(j, label.u)
-        return false
-    end
+    # if label.rtime + tij > request_twend(sp, j)
+    #     return false
+    # end
+    label.rtime + tij > request_twend(sp, j) && return false
+    max(label.rtime + tij, request_twstart(sp, j)) + traveltime(sp, j, root(sp)) > tmax(sp) && return false
+
+    in(j, label.u) && return false
 
     return true
 end
