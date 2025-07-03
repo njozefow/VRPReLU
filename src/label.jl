@@ -22,7 +22,8 @@ end
 
 # @inline same_distance_category(lone, ltwo) = (lone.distance <= 0) == (ltwo.distance <= 0)
 
-@inline dominates_by_resources(lone, ltwo) = !(lone.rtime > ltwo.rtime || lone.distance > ltwo.distance + myeps)
+# TODO: j'ai changé le sens du test (on domine si on est egal -> voir à changer)
+@inline dominates_by_resources(lone, ltwo) = lone.rtime <= ltwo.rtime && lone.distance <= ltwo.distance
 
 @inline function update_label_ng(sp, lfrom, lto, j)
     lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)

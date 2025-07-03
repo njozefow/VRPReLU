@@ -87,42 +87,53 @@ function allowed(label::EnumLabel, j, dij, tij, sp)
 end
 
 function allowed(label::EnumLabel, node, sp)
-    if label.node == node
-        return false
-    end
+    label.node == node && return false
+    # if label.node == node
+    #     return false
+    # end
 
     load = label.load + request_quantity(sp, node)
-    if load > vehicle_capacity(sp)
-        return false
-    end
+    load > vehicle_capacity(sp) && return false
+    # if load > vehicle_capacity(sp)
+    #     return false
+    # end
 
     rtime = label.rtime + traveltime(sp, label.node, node)
 
-    if rtime > request_twend(sp, node)
-        return false
-    end
+    rtime > request_twend(sp, node) && return false
+    # if rtime > request_twend(sp, node)
+    #     return false
+    # end
 
     rtime = max(rtime, request_twstart(sp, node))
 
-    if rtime + traveltime(sp, node, root(sp)) > tmax(sp)
-        return false
-    end
+    rtime + traveltime(sp, node, root(sp)) > tmax(sp) && return false
+    # if rtime + traveltime(sp, node, root(sp)) > tmax(sp)
+    #     return false
+    # end
 
-    if in(node, label.u)
-        return false
-    end
+    in(node, label.u) && return false
+    # if in(node, label.u)
+    #     return false
+    # end
 
     return true
 end
 
+# TODO: Is it OK to not test distance ?
 function dominates(lone::EnumLabel, ltwo::EnumLabel)
-    if lone.rtime > ltwo.rtime
-        return false
-    end
+    lone.rtime > ltwo.rtime && return false
+    # if lone.rtime > ltwo.rtime
+    #     return false
+    # end
 
-    if !issetequal(lone.u, ltwo.u)
-        return false
-    end
+    # TODO: Est-ce correct de faire ce test ?
+    lone.distance > ltwo.distance && return false
+
+    !issetequal(lone.u, ltwo.u) && return false
+    # if !issetequal(lone.u, ltwo.u)
+    #     return false
+    # end
 
     return true
 end

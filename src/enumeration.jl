@@ -147,7 +147,9 @@ function enumbuildroute(sp, buckets, label)
 
     nodes = BitSet(label.node)
 
+    # TODO: ce n'est pas cela le coût -> ajouter soft limits
     cost = label.distance + distance(sp, label.node, root(sp))
+    cost = max(0, cost - soft_distance_limit(sp))
 
     pi = label.pnode
     pd = label.pload
