@@ -7,8 +7,6 @@ mutable struct EnumLabel
 
     node::Int
 
-    # reduced_cost::Float64
-
     distance::Int
     rtime::Int
     load::Int
@@ -17,12 +15,9 @@ mutable struct EnumLabel
     u::BitSet
 end
 
-# @inline EnumLabel() = EnumLabel(-1, 0, 1, 0, -1, Inf, 0, 0, 0, BitSet())
 @inline EnumLabel() = EnumLabel(-1, 0, 1, 0, -1, 0, 0, 0, 0.0, BitSet())
 
 function EnumLabel(sp, node, id)
-    # redcost = reduced_cost(sp, root(sp), node)
-
     dist = distance(sp, root(sp), node)
     rtime = max(traveltime(sp, root(sp), node) + tmin(sp), request_twstart(sp, node))
     load = request_quantity(sp, node)
@@ -45,8 +40,6 @@ function EnumLabel(sp, lfrom::EnumLabel, j, dij, pij, tij, lid)
 
     lto.node = j
 
-    # lto.reduced_cost = lfrom.reduced_cost + rij
-
     lto.distance = lfrom.distance + dij
     lto.rtime = max(lfrom.rtime + tij, request_twstart(sp, j))
     lto.load = lfrom.load + request_quantity(sp, j)
@@ -61,18 +54,10 @@ end
 
 # TODO: il faut prendre en compte la hard limit sur la distance
 function allowed(label::EnumLabel, j, dij, tij, sp)
-    # if label.node == j
-    #     return false
-    # end
     label.node == j && return false
 
-    # if label.load + request_quantity(sp, j) > vehicle_capacity(sp)
-    #     return false
-    # end
     label.load + request_quantity(sp, j) > vehicle_capacity(sp) && return false
 
-    # On ne respecte pas la hard limit sur la distance
-    # path_length(sp, label) + dij > hord_distance_limit(sp) && return false
     path_length(sp, label) + dij + distance(sp, j, root(sp)) > hard_distance_limit(sp) && return false
 
     # if label.rtime + tij > request_twend(sp, j)

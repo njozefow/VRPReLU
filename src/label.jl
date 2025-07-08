@@ -1,153 +1,112 @@
-# Optimized Label struct with fields grouped for better cache locality
 @kwdef mutable struct Label
-    # Identifiers and node info
     id::Int = -1
-    pid::Int = 0
-    node::Int = -1
-    pnode::Int = 1
+    node::Int = 0
 
-    # Resources
-    distance::Int = 0
-    rtime::Int = 0
-    load::Int = 0
+    # Identifiers and node info
+    pid::Int = 0
+    pnode::Int = 1
     pload::Int = 0
 
-    # Cost and feasibility
+    # length and reduced cost
+    length::Int = 0
     picost::Float64 = 0.0
+
+    # Resources
+    rtime::Int = 0
+    load::Int = 0
+
+    # Neighborhood
     u::UInt8 = UInt8(0)
 end
 
-# Optimized helper functions
-# @inline is_within_soft_limit(label) = label.distance <= 0
+# Core label functions
+@inline path_cost(sp, label::Label) = max(0, label.length - soft_distance_limit(sp))
+@inline path_reduced_cost(sp, label::Label) = path_cost(sp, label) + label.picost
 
-# @inline same_distance_category(lone, ltwo) = (lone.distance <= 0) == (ltwo.distance <= 0)
+@inline route_cost(sp, label::Label) = max(0, label.length + distance(sp, label.node, root(sp)) - soft_distance_limit(sp))
+@inline route_reduced_cost(sp, label::Label) = route_cost(sp, label) + label.picost + picost(sp, label.node, root(sp))
 
-# TODO: j'ai changé le sens du test (on domine si on est egal -> voir à changer)
-@inline dominates_by_resources(lone, ltwo) = lone.rtime <= ltwo.rtime && lone.distance <= ltwo.distance
-
-@inline function update_label_ng(sp, lfrom, lto, j)
-    lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
-
-    # within_soft_from = is_within_soft_limit(lfrom)
-    # within_soft_to = is_within_soft_limit(lto)
-
-    # if within_soft_from && !within_soft_to
-    #     lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, sp.hardng, j)
-    # elseif !within_soft_from
-    #     lto.u = ngintersect(sp.hardng, lfrom.node, lfrom.u, j)
-    # elseif within_soft_to
-    #     lto.u = ngintersect(sp.softng, lfrom.node, lfrom.u, j)
-    # end
-end
-
-@inline function can_extend_to_node(sp, label, j, dij, tij)
-    if label.node == j ||
-       label.load + request_quantity(sp, j) > vehicle_capacity(sp)
-        return false
-    end
-
-    if path_length(sp, label) + dij + distance(sp, j, root(sp)) > hard_distance_limit(sp)
-        return false
-    end
-
-    if label.rtime + tij > request_twend(sp, j)
-        return false
-    end
-
-    # ng = is_within_soft_limit(label) ? sp.softng : sp.hardng
-    return !ngin(sp.ng, label.node, label.u, j)
-end
+@inline route_length(sp, label::Label) = label.length + distance(sp, label.node, root(sp))
 
 # Base constructors
-Label(sp) = Label(distance=-soft_distance_limit(sp))
-
 function Label(sp, node, id)
     label = Label()
-    set(sp, label, node, id)
+    set_label(sp, label, node, id)
     return label
 end
 
-# Core label functions
-@inline path_cost(label) = max(0, label.distance)
-@inline path_reduced_cost(label) = path_cost(label) + label.picost
-
-@inline route_cost(sp, label) = max(0, label.distance + distance(sp, label.node, root(sp)))
-@inline route_reduced_cost(sp, label) = route_cost(sp, label) + label.picost + picost(sp, label.node, root(sp))
-
-@inline path_length(sp, label) = label.distance + soft_distance_limit(sp)
-@inline route_length(sp, label) = label.distance + distance(sp, label.node, root(sp)) + soft_distance_limit(sp)
-
 # Label initialization
-function set(sp, label, node, id)
+function set_label(sp, label, node, id)
     label.id = id
+    label.node = node
+
     label.pid = 0
     label.pnode = root(sp)
     label.pload = 0
-    label.node = node
 
+    label.length = distance(sp, root(sp), node)
     label.picost = picost(sp, root(sp), node)
-    label.distance = distance(sp, root(sp), node) - soft_distance_limit(sp)
+
     label.rtime = max(traveltime(sp, root(sp), node) + 1, request_twstart(sp, node))
     label.load = request_quantity(sp, node)
+
     label.u = UInt8(0)
 end
 
 # Label extension
 function Label(sp, lfrom::Label, j, dij, pij, tij, lid)
-    lto = Label(sp)
+    lto = Label()
 
-    # Set basic fields
     lto.id = lid
+    lto.node = j
+
     lto.pid = lfrom.id
     lto.pnode = lfrom.node
     lto.pload = lfrom.load
-    lto.node = j
 
-    # Set resource fields
+    lto.length = lfrom.length + dij
     lto.picost = lfrom.picost + pij
-    lto.distance = lfrom.distance + dij
+
     lto.rtime = max(lfrom.rtime + tij, request_twstart(sp, j))
     lto.load = lfrom.load + request_quantity(sp, j)
 
-    # Update ng-routes
     lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
-    # update_label_ng(sp, lfrom, lto, j)
 
     return lto
 end
 
 # Set extension function for updating existing labels
 function set_extend(sp, lfrom::Label, lto::Label, j, lid)
-    # Set basic fields
     lto.id = lid
+    lto.node = j
+
     lto.pid = lfrom.id
     lto.pnode = lfrom.node
     lto.pload = lfrom.load
-    lto.node = j
 
-    # Set resource fields
+    lto.length = lfrom.length + distance(sp, lfrom.node, j)
     lto.picost = lfrom.picost + picost(sp, lfrom.node, j)
-    lto.distance = lfrom.distance + distance(sp, lfrom.node, j)
+
     lto.rtime = max(lfrom.rtime + traveltime(sp, lfrom.node, j), request_twstart(sp, j))
     lto.load = lfrom.load + request_quantity(sp, j)
 
-    # Update ng-routes
-    update_label_ng(sp, lfrom, lto, j)
+    lto.u = ngintersect(sp.ng, lfrom.node, lfrom.u, j)
 end
 
-# Feasibility and dominance checking
-@inline allowed(label::Label, j, dij, tij, sp) = can_extend_to_node(sp, label, j, dij, tij)
+function allowed(sp, label::Label, j, dij, tij)
+    label.node == j && return false
 
-function dominates_full(sp, lone, ltwo)
-    if !dominates_by_resources(lone, ltwo)
-        return false
-    end
+    label.load + request_quantity(sp, j) > vehicle_capacity(sp) && return false
 
-    # if same_distance_category(lone, ltwo)
-    return lone.u & ltwo.u == lone.u
-    # end
+    label.rtime + tij > request_twend(sp, j) && return false
 
-    # return ngsubsetequal(sp.softng, lone.u, sp.hardng, ltwo.u, lone.node)
+    label.length + dij + distance(sp, j, root(sp)) > hard_distance_limit(sp) && return false
+
+    return !ngin(sp.ng, label.node, label.u, j)
 end
 
-@inline dominates_ressources(sp, lone, ltwo) = dominates_by_resources(lone, ltwo)
+@inline equal(lone::Label, ltwo::Label) = lone.rtime == ltwo.rtime && lone.length == ltwo.length && lone.u == ltwo.u
+
+@inline dominates_ressources(lone, ltwo) = lone.rtime <= ltwo.rtime && lone.length <= ltwo.length
+
+@inline dominates_full(lone, ltwo) = dominates_ressources(lone, ltwo) && lone.u & ltwo.u == lone.u

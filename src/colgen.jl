@@ -71,7 +71,7 @@ function colgen(param::Param, master::Master, sp::Subproblem, branchments::Vecto
             status = 2
         end
 
-        dp_iteration += 1
+        # dp_iteration += 1
 
         if status == 2 && call_ngdynprog(sp, master, lb)
             continue

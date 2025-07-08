@@ -15,7 +15,7 @@ end
 function check_dominance(sp, buckets, j, newlabel, dom)
     for q in 1:newlabel.load-1
         @inbounds bucket = buckets[j, q]
-        if !isempty(bucket) && dominate(sp, bucket, newlabel, dom)
+        if !isempty(bucket) && check_dominate(sp, bucket, newlabel, dom)
             return false
         end
     end
@@ -43,7 +43,8 @@ function ngdprun(sp, buckets::Array{Vector{Label},2}, lid::Int, dom)
             for label in bucket
                 for (j, dij, pij, tij) in adj(sp, i)
                     # Check if extension is allowed
-                    allowed(label, j, dij, tij, sp) || continue
+                    # TODO: pourquoi cela n'a pas l'air correct
+                    allowed(sp, label, j, dij, tij) || continue
 
                     # Create new label
                     newlabel = Label(sp, label, j, dij, pij, tij, lid)

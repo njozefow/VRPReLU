@@ -5,7 +5,7 @@ function hinit(sp)
     lid = 1
 
     for i in 2:n_nodes(sp)
-        set(sp, labels[i, request_quantity(sp, i)], i, lid)
+        set_label(sp, labels[i, request_quantity(sp, i)], i, lid)
 
         lid += 1
     end
@@ -24,16 +24,16 @@ function hrun(sp, labels, lid)
             end
 
             for (j, dij, pij, tij) in adj(sp, i)
-                if !allowed(label, j, dij, tij, sp)
+                if !allowed(sp, label, j, dij, tij)
                     continue
                 end
 
                 labelto = labels[j, label.load+request_quantity(sp, j)]
 
-                cost = max(0, label.distance + dij)
+                cost = max(0, label.length + dij - soft_distance_limit(sp))
                 rc = cost + label.picost + pij
 
-                if rc < path_reduced_cost(labelto) - myeps
+                if rc < path_reduced_cost(sp, labelto) - myeps
                     set_extend(sp, label, labelto, j, lid)
                     lid += 1
                 end
