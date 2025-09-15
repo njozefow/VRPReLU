@@ -1,10 +1,10 @@
-function push(bucket, label::EnumLabel)
+function push(sp, bucket, label::EnumLabel)
     pos = 1
 
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if l.reduced_cost >= label.reduced_cost - myeps
+        if l.reduced_cost >= path_reduced_cost(sp, label) - myeps
             break
         elseif dominates(l, label)
             return false
@@ -13,22 +13,22 @@ function push(bucket, label::EnumLabel)
         end
     end
 
-    # TODO: traiter les labels egaux
+    # Labels with the same reduced cost -> dominate, dominated, or equal
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
-        if abs(l.reduced_cost - label.reduced_cost) >= myeps
+        if abs(l.reduced_cost - path_reduced_cost(sp, label)) >= myeps
             break
-        elseif !issetequal(l.u, label.u)
-            pos += 1
-        elseif label.rtime >= label.rtime
+        elseif equal(label, l) || dominates(l, label)
             return false
-        else
+        elseif dominates(label, l)
             deleteat!(bucket, pos)
+        else
+            pos += 1
         end
     end
 
-
+    # Search for first non-dominated label
     while !isend(bucket, pos)
         @inbounds l = bucket[pos]
 
@@ -63,11 +63,13 @@ function enuminit(sp)
     buckets = [Vector{EnumLabel}() for _ in 1:n_nodes(sp), _ in 1:vehicle_capacity(sp)]
 
     for i in 2:n_nodes(sp)
+        println("i: ", i)
+
         bound = Inf
 
         rtime = max(traveltime(sp, root(sp), i) + 1, request_twstart(sp, i))
-        distance = distance(sp, root(sp), i)
-        picost = picost(sp, root(sp), i)
+        dist = distance(sp, root(sp), i)
+        pc = picost(sp, root(sp), i)
 
         # TODO: voir si on peut en retirer ici
         # for ng in 1:128
@@ -76,7 +78,7 @@ function enuminit(sp)
         #     end
         # end
 
-        bound = search_pcb(sp, UInt8(0), i, tmax(sp) - rtime, distance, picost)
+        bound = search_pcb(sp, UInt8(0), i, tmax(sp) - rtime, dist, pc)
         # Il faut récupérer le coût à partir des archives de Pareto
         # if reduced_cost(sp, root(sp), i) + bound > sp.gap - myeps
         #     continue
@@ -116,7 +118,7 @@ function enumrun(param, sp, buckets, lid)
                     # if !allowed(l, j, tij, sp)
                     #     continue
                     # end
-                    !allowed(l, j, dij, tij, sp) && continue
+                    allowed(sp, l, j, dij, tij) || continue
 
                     newlabel = EnumLabel(sp, l, j, dij, pij, tij, lid)
 
@@ -131,7 +133,7 @@ function enumrun(param, sp, buckets, lid)
 
                     bound > sp.gap - myeps && continue
 
-                    @inbounds if push(buckets[j, newlabel.load], newlabel)
+                    @inbounds if push(sp, buckets[j, newlabel.load], newlabel)
                         lid += 1
                     end
                 end
@@ -211,6 +213,9 @@ end
 
 function enumeration(param, sp)
     lid, buckets = enuminit(sp)
+
+    # TODO: A retirer
+    return Vector{Column}()
 
     if timeout(param)
         return Vector{Column}()

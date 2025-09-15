@@ -102,6 +102,8 @@ end
 # end
 
 function enumerate(param, master, sp, result)
+    print("Enumeration\n")
+
     lower_bound = result.lower_bound
     lb_cpu_time = result.lb_cpu_time
 
@@ -110,8 +112,6 @@ function enumerate(param, master, sp, result)
     set(sp, master.constraints)
     # compute_tbounds(sp)
     compute_pbounds(sp)
-
-    return result
 
     upperbound = floor(lower_bound * GAP_EPS + myeps)
     sp.gap = upperbound - lower_bound
@@ -122,6 +122,8 @@ function enumerate(param, master, sp, result)
     end
 
     routes = enumeration(param, sp)
+
+    return result
 
     if timeout(param)
         # TODO: récupérer la meilleur solution trouvée s'il y en a une
@@ -223,7 +225,7 @@ function solve(instance::Instance)
     # return solve_master(param, master, lower_bound, lb_cpu_time)
 
     # TODO: a remettre
-    # enumerate(param, master, sp, result)
+    enumerate(param, master, sp, result)
 
     return result
 end
