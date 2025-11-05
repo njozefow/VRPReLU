@@ -52,11 +52,11 @@ function compute_pbounds(sp)
     propagate_pbounds(sp)
 end
 
-function search_pcb(sp, u::UInt8, i, t, distance::Int, picost::Float64)
+function search_pcb(sp, u::BitSet, i, t, distance::Int, picost::Float64)
     pcb = Inf
 
     for ng in 0:127
-        !compatible(sp, u, UInt8(ng), u) && continue
+        !compatible(sp, i, UInt8(ng), u) && continue
 
         @inbounds elements = sp.pbounds[ng+1, i, t].elements
 

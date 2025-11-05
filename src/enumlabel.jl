@@ -9,8 +9,8 @@
     length::Int = 0
     picost::Float64 = 0.0
 
-    rtime::Int
-    load::Int
+    rtime::Int = 0
+    load::Int = 0
 
     u::BitSet = BitSet()
 end
@@ -81,9 +81,9 @@ function equal(lone::EnumLabel, ltwo::EnumLabel)
     return issetequal(lone.u, ltwo.u)
 end
 
-
+# TODO: Is there a problem here ?
 function dominates(lone::EnumLabel, ltwo::EnumLabel)
     lone.rtime > ltwo.rtime && return false
-    lone.distance > ltwo.distance && return false
+    lone.length > ltwo.length && return false
     return issetequal(lone.u, ltwo.u)
 end

@@ -54,6 +54,7 @@ function ngdprun(sp, buckets::Array{Vector{Label},2}, lid::Int, dom)
                        @inbounds push(sp, buckets[j, newlabel.load], newlabel, dom)
 
                         # Clean higher buckets
+                        # TODO: c'est n'importe quoi ici
                         clean_higher_buckets!(sp, buckets, j, newlabel, capacity)
                         lid += 1
                     end

@@ -78,7 +78,7 @@ function enuminit(sp)
         #     end
         # end
 
-        bound = search_pcb(sp, UInt8(0), i, tmax(sp) - rtime, dist, pc)
+        bound = search_pcb(sp, BitSet(i), i, tmax(sp) - rtime, dist, pc)
         # Il faut récupérer le coût à partir des archives de Pareto
         # if reduced_cost(sp, root(sp), i) + bound > sp.gap - myeps
         #     continue
@@ -129,7 +129,7 @@ function enumrun(param, sp, buckets, lid)
                     # end
 
                     # TODO: completion bound
-                    bound = search_pcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime, newlabel.distance, newlabel.picost)
+                    bound = search_pcb(sp, newlabel.u, newlabel.node, tmax(sp) - newlabel.rtime, newlabel.length, newlabel.picost)
 
                     bound > sp.gap - myeps && continue
 

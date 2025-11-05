@@ -225,7 +225,7 @@ function solve(instance::Instance)
     # return solve_master(param, master, lower_bound, lb_cpu_time)
 
     # TODO: a remettre
-    enumerate(param, master, sp, result)
+    # enumerate(param, master, sp, result)
 
     return result
 end
